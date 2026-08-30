@@ -1,7 +1,9 @@
 """Phase 10: the one sealed evaluation of the chosen model against the held-out
 test set. Reproduces 03_train.py's split deterministically (identical
 random_state/test_size) rather than loading a persisted test set, then scores
-the serialised model exactly once.
+the serialised model exactly once, at the decision threshold recorded in
+artifacts/decision_threshold.json (05_threshold_sweep.py's finding) rather
+than predict()'s implicit 0.5.
 """
 
 from __future__ import annotations
@@ -78,10 +80,15 @@ def main() -> None:
 
     model = joblib.load(ARTIFACT_DIR / "model.joblib")
     preprocessor = joblib.load(ARTIFACT_DIR / "preprocessor.joblib")
+    with open(ARTIFACT_DIR / "decision_threshold.json", encoding="utf-8") as f:
+        threshold_config = json.load(f)
+    threshold = threshold_config["threshold"]
 
     X_te_enc = preprocessor.transform(X_te)
-    y_pred = model.predict(X_te_enc)
     y_proba = model.predict_proba(X_te_enc)[:, 1]
+    # The sweep-chosen threshold (05_threshold_sweep.py), not model.predict()'s
+    # implicit 0.5 - see 03_train.py's DECISION_THRESHOLD and decision 66.
+    y_pred = (y_proba >= threshold).astype(int)
 
     metrics = {
         "accuracy": float(accuracy_score(y_te, y_pred)),
@@ -92,7 +99,13 @@ def main() -> None:
     }
     cm = confusion_matrix(y_te, y_pred).tolist()
 
-    print(f"test set: {len(X_te)} rows, {int(y_te.sum())} positive (opened once, this run)")
+    print(
+        "FINAL SEALED TEST-SET METRICS (opened once, this run) - not CV, not "
+        "out-of-fold; distinct from every number in 03_train.py's cv_results.csv "
+        "or 05_threshold_sweep.py's threshold_sweep.csv."
+    )
+    print(f"test set: {len(X_te)} rows, {int(y_te.sum())} positive")
+    print(f"decision threshold: {threshold} (from {threshold_config['chosen_from']})")
     print("test metrics:")
     for name, value in metrics.items():
         print(f"  {name:<10} {value:.3f}")
@@ -122,6 +135,7 @@ def main() -> None:
         "version": MODEL_VERSION,
         "model_type": model_type,
         "imbalance_strategy": strategy,
+        "decision_threshold": threshold,
         "test_set_size": len(X_te),
         "test_set_positives": int(y_te.sum()),
         "test_metrics": metrics,

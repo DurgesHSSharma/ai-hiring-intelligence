@@ -1,0 +1,7 @@
+{
+  "threshold": 0.55,
+  "model": "logreg",
+  "strategy": "smote",
+  "target_recall": 0.7,
+  "chosen_from": "05_threshold_sweep.py out-of-fold precision-recall curve"
+}

@@ -900,64 +900,253 @@ majority class:
 - **Random Forest:** 0.168 -> 0.347 (SMOTE roughly doubles recall — `class_weight="balanced"` alone leaves this model badly under-serving the minority class).
 - **XGBoost:** 0.363 -> 0.389 (a modest gain).
 
-### Model selection
+### Model selection — superseded, see the threshold sweep below
 
-`03_train.py` selects automatically by the highest CV F1 (a single
-scalar standing in for "recall and precision jointly," not accuracy) and
-picked **Logistic Regression + SMOTE** (F1 = 0.479 ± 0.033). Its margin
-over **XGBoost + SMOTE** (F1 = 0.476 ± 0.074) sits inside both
-configurations' noise band and is not by itself a real finding — with
-~190 positives in the training fold, this dataset cannot currently
-distinguish the two on F1 alone.
+~~`03_train.py` selects automatically by the highest CV F1 ... **Judgment
+call, recorded for the project owner to override:** this project ships
+Logistic Regression + SMOTE on [a business-value] reasoning ... This is a
+business-value judgment, not a statistical result.~~ — **superseded, same
+day:** the project owner rejected a business-value tiebreak on a 0.003 F1
+gap as insufficient justification, and pointed out that all six Phase 10
+configurations sit within a narrow 0.773–0.804 ROC-AUC band — evidence
+they rank employees almost identically, which would make the
+precision/recall spread mostly an artifact of where the default 0.5 cut
+happens to fall rather than a real difference between models. Settled
+with an actual threshold sweep instead of a preference. See below.
 
-What *is* a reseeding-resistant difference between those same two
-candidates is the recall/precision trade: Logistic Regression + SMOTE
-recalls 0.737 ± 0.088 at 0.356 ± 0.019 precision; XGBoost + SMOTE recalls
-0.389 ± 0.063 at 0.617 ± 0.105 precision. Those bands do not overlap —
-Logistic Regression + SMOTE catches roughly twice as many actual leavers,
-at the cost of roughly twice as many false alarms per true positive
-caught.
+### Threshold sweep, round 1 (single seed) — kept for history, not the authoritative result
 
-**Judgment call, recorded for the project owner to override:** this
-project ships Logistic Regression + SMOTE on the reasoning that a missed
-leaver (false negative) forecloses any chance to intervene, while a false
-positive costs a check-in conversation with someone who was not actually
-at risk — and per Rules.md §9 a risk flag never auto-acts on an employee,
-a person still reviews it. That asymmetry favors recall. This is a
-business-value judgment, not a statistical result; the alternative
-(XGBoost + SMOTE — better precision, meaningfully lower recall) is a
-defensible opposite call if HR attention is the scarcer resource.
+**Methodology.** `ml/attrition/05_threshold_sweep.py`, first version. Same
+training split as `03_train.py` (identical `random_state=42`); the test
+set was never touched anywhere in this script. For each of the two SMOTE
+configurations, `cross_val_predict(..., method="predict_proba")` on a
+5-fold `StratifiedKFold` (seed 42 only) produced out-of-fold
+probabilities for every training-fold row. `sklearn.metrics.precision_recall_curve`
+on the pooled out-of-fold probabilities gave the full curve; every
+`(threshold, precision, recall, f1)` row for both models is in
+`ml/attrition/artifacts/threshold_sweep.csv` (2,352 rows) — **frozen,
+never overwritten, retained as the historical record of this round.**
 
-### Sealed test-set evaluation (opened once, `04_evaluate.py`)
+**A real preprocessing-leakage defect was found in this version, after
+the fact, by the project owner reading the code — not caught before
+running it.** The preprocessor (`02_preprocessing.build_pipeline()`) was
+fit once on the complete 1,176-row training fold *before* the
+cross-validation loop, and only the already-encoded array was passed into
+`cross_val_predict`. That let every fold's validation rows influence the
+imputation medians, scaling mean/std, and one-hot category set used to
+transform themselves — the same class of leakage SMOTE's fold-safety was
+already built to prevent, just for a different transform. **Round 1's
+numbers below should not be treated as the final evidence** — they are
+presented for the historical record and because, as it turned out, they
+were not far off:
+
+```
+logreg_smote:  best-F1 threshold=0.734 (precision=0.573, recall=0.495, f1=0.531)
+  recall >= 0.60: precision=0.449 at threshold=0.645 (actual recall=0.605)
+  recall >= 0.70: precision=0.387 at threshold=0.550 (actual recall=0.700)
+  recall >= 0.80: precision=0.301 at threshold=0.393 (actual recall=0.800)
+
+xgboost_smote: best-F1 threshold=0.230 (precision=0.500, recall=0.547, f1=0.523)
+  recall >= 0.60: precision=0.430 at threshold=0.127 (actual recall=0.600)
+  recall >= 0.70: precision=0.347 at threshold=0.038 (actual recall=0.700)
+  recall >= 0.80: precision=0.256 at threshold=0.009 (actual recall=0.800)
+```
+
+Round 1's headline finding was that the two curves cross near recall
+~0.38 (XGBoost + SMOTE slightly ahead below that), with Logistic
+Regression + SMOTE ahead from recall ~0.40 through 0.90, including all
+three of the explicitly checked ≥0.60/0.70/0.80 targets.
+
+### Threshold sweep, round 2 (fold-safe, 4 seeds) — the authoritative result
+
+**The fix.** Preprocessing now lives inside the same
+`imblearn.pipeline.Pipeline` as SMOTE and the classifier
+(`preprocess` → `smote` → `clf`, one object). `cross_val_predict` clones
+this whole pipeline per fold and fits it on that fold's raw training rows
+only, so imputation/scaling/encoding, resampling, and model fitting are
+all refit inside each fold — nothing is computed from data outside the
+fold it's cloned into. (One implementation snag along the way: sklearn/
+imblearn reject a `Pipeline` nested as an intermediate step of another
+`Pipeline`; `02_preprocessing.build_pipeline()`'s bare `ColumnTransformer`
+is unwrapped via `.named_steps["preprocess"]` instead of nesting the
+whole `Pipeline` object.)
+
+**Multi-seed methodology.** The same Logistic Regression + SMOTE vs.
+XGBoost + SMOTE comparison, repeated across 4 independent
+`StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)` seeds —
+42, 43, 44, 45 — to check round 1's finding wasn't an artifact of one
+particular fold assignment. Only the fold-assignment seed varies; the
+outer 80/20 split (`random_state=42`), SMOTE's own `random_state=42`, and
+every classifier's `random_state=42` stay fixed throughout, so fold
+assignment is the only thing being tested. All 9,408 rows
+(4 seeds × 2 models × 1,176 training-fold rows) are in
+`ml/attrition/artifacts/threshold_sweep_multiseed.csv`.
+
+**Result: Logistic Regression + SMOTE wins 12 of 12 recall-matched
+comparisons (4 seeds × 3 recall targets), zero ties, zero XGBoost wins:**
+
+```
+seed  recall_target  logreg_smote  xgboost_smote  diff (logreg - xgboost)
+42    0.60           0.464         0.429          +0.035
+42    0.70           0.389         0.357          +0.032
+42    0.80           0.305         0.268          +0.037
+43    0.60           0.465         0.399          +0.066
+43    0.70           0.408         0.343          +0.065
+43    0.80           0.300         0.277          +0.023
+44    0.60           0.462         0.353          +0.109
+44    0.70           0.396         0.303          +0.093
+44    0.80           0.311         0.259          +0.053
+45    0.60           0.447         0.380          +0.067
+45    0.70           0.381         0.333          +0.049
+45    0.80           0.320         0.269          +0.051
+```
+
+Precision advantage for Logistic Regression + SMOTE ranges from **+0.023
+to +0.109** across all 12 comparisons — always positive, never a tie
+(tie defined as `|diff| <= 0.01`), never reversed. This is a materially
+stronger result than round 1's, and it confirms round 1's specific
+conclusion (which recall targets it checked, and which model won at
+them) survived both the leakage fix and three additional independent
+fold assignments.
+
+**Scope of this evidence, stated explicitly, not implied.** This is
+**not** a whole-curve dominance claim. Only recall ≥0.60/0.70/0.80 were
+tested, across 4 seeds; round 1's observation that the curves cross
+somewhere below recall ~0.38 was not re-verified across multiple seeds
+and is not being asserted as multi-seed-confirmed. The claim is limited
+to: at the three recall levels this project cares about for an
+early-warning tool, across four different fold assignments, Logistic
+Regression + SMOTE has higher precision every time.
+
+**Threshold confirmed: 0.550, unchanged.** Round 2's own seed-42 result
+for recall ≥0.70 is threshold=0.550, precision=0.389 — matching round
+1's number (0.550, precision=0.387) almost exactly, so the leakage fix
+moved this specific number by about a thousandth, not enough to change
+the decision. Across all 4 seeds, the threshold achieving recall ≈0.70
+ranges from 0.538 to 0.550 — a span of 0.012 — so 0.550 is not an
+outlier tied to one arbitrary fold assignment; it sits at the top of a
+tight cluster. **The threshold was selected entirely from training-fold
+out-of-fold predictions. The held-out test set was not used for model
+selection, threshold selection, or calibration analysis at any point —
+it is opened exactly once, below, after every other decision on this
+page was already made.**
+
+### Calibration comparison — raw `predict_proba` is not a calibrated real-world probability
+
+**Methodology.** Logistic Regression + `class_weight="balanced"` vs.
+Logistic Regression + SMOTE, single seed (42), same fold structure as
+above, out-of-fold probabilities, training data only. Reliability bins
+built directly (`pd.qcut`, 10 quantile bins) rather than via
+`sklearn.calibration.calibration_curve`, specifically so each bin's
+observation count and positive count are available, not just its
+fraction-positive.
+
+```
+model            brier   mean_predicted  prevalence  ratio
+logreg_balanced  0.1756  0.3885          0.1616      2.40x
+logreg_smote     0.1710  0.3686          0.1616      2.28x
+```
+
+**Bin population — checked before ranking anything.** Both models'
+10 quantile bins are sized 117-118 (out of 1,176 rows) — comparable, not
+sparse in total count. But **positive counts per bin are small,
+especially in the bin nearest a 0.60 prediction, which is exactly the
+bin the original write-up's ranking claim rested on:**
+
+```
+                  bin 6 (~0.50)      bin 7 (~0.60)      bin 8 (~0.70)
+logreg_balanced   n=117 pos=19       n=118 pos=20       n=117 pos=39
+logreg_smote      n=117 pos=13       n=118 pos=25       n=117 pos=36
+```
+
+At bin 7, balanced's 20/118 (0.169) vs. SMOTE's 25/118 (0.212) is a
+5-observation difference on a base of 118 — well inside one standard
+error of a ~19% binomial proportion at this sample size (~3.6 points).
+**The SMOTE-vs-balanced calibration ranking is INCONCLUSIVE, not a
+finding** — the earlier write-up's claim that SMOTE is "marginally
+better calibrated" rested on a 0.0046 Brier-score gap and a
+single-bin comparison, neither large enough to trust against this much
+sampling noise. This has been corrected here rather than left standing.
+
+**What does survive scrutiny, robustly, for both models:** the
+overstatement of risk is large and consistent, not a small effect
+sensitive to a handful of bin counts. Mean predicted probability is
+**2.3-2.4x** the actual training-set prevalence for both models, and
+every mid-to-upper bin shows the same pattern regardless of which model
+produced it — e.g. at the bin nearest a 0.60 prediction, actual
+attrition among those 117-118 people is 17-21%, not 60%, for *either*
+model. At the bin nearest 0.87-0.84, actual attrition is 61-63%, not
+84-87%. **A raw score of 0.60 from Logistic Regression + SMOTE does not
+mean a 60% real-world attrition probability** — nor does the same raw
+score from `class_weight="balanced"`. Both imbalance-handling techniques
+inflate the model's apparent sense of how common the positive class is
+by design (SMOTE by synthesizing more of it, `class_weight` by
+reweighting its loss), and neither was built to preserve real-world
+calibration.
+
+**Phase 11 consequence, not resolved here.** Raw `predict_proba` from
+either imbalance-handled model must not be presented as a calibrated
+attrition probability without recalibration (e.g. Platt scaling or
+isotonic regression against a proper calibration set) — this sharpens,
+with a measured ~2.3-2.4x gap rather than a qualitative concern, the
+already-flagged tension with `PRD.md` F9.7's fixed Low/Medium/High bands
+(raw-probability cuts of 30%/60%): if F9.7's bands are applied to this
+model's raw output as-is, "High risk (>60%)" would trigger around a
+predicted score whose real attrition rate is closer to 20-30%, not
+"more than 60% likely to leave." See decisions 66-69.
+
+### Sealed test-set evaluation (opened once, `04_evaluate.py`, threshold 0.550)
 
 294 rows, 47 positive. Logistic Regression + SMOTE, loaded fresh from
-`model.joblib` / `preprocessor.joblib`:
+`model.joblib` / `preprocessor.joblib`, decision threshold 0.550 loaded
+from `decision_threshold.json`:
 
 ```
-accuracy   0.748
-precision  0.352
-recall     0.681
-f1         0.464
+accuracy   0.765
+precision  0.369
+recall     0.660
+f1         0.473
 roc_auc    0.784
-confusion matrix [[TN, FP], [FN, TP]]: [[188, 59], [15, 32]]
+confusion matrix [[TN, FP], [FN, TP]]: [[194, 53], [16, 31]]
 ```
 
-All five numbers land within one CV standard deviation of the
-cross-validated estimate above — the CV table was not an optimistic
-preview of a number the test set then failed to reproduce.
+Compared with the old default-0.5 result (accuracy 0.748, precision
+0.352, recall 0.681, f1 0.464, confusion matrix `[[188, 59], [15, 32]]`):
+raising the cut to 0.550 traded one true positive for six fewer false
+positives on this 294-row test set (31 vs. 32 of 47 leavers caught, 53
+vs. 59 false alarms) — precision and accuracy both improved slightly,
+recall dropped slightly, F1 improved slightly. ROC-AUC is unchanged
+(0.784), as it must be — it doesn't depend on where the cut is drawn.
+The test-set numbers at threshold 0.550 (0.369 precision / 0.660 recall)
+run a bit below the out-of-fold sweep's estimate at the same threshold
+(0.387 / 0.700) — a real, modest gap, consistent with the small-sample
+variance this dataset has shown throughout (~47 test positives), not a
+discrepancy that indicates a bug.
 
 **Accuracy is reported for completeness, not as the basis for model
 choice.** Predicting "No" for every one of these 294 rows scores 0.840
-accuracy while catching zero of the 47 actual leavers — higher than this
-model's 0.748. Recall (0.681: 32 of 47 leavers caught) and precision
-(0.352: roughly 1 correct flag in 3) are what the choice above is
-actually justified on.
+accuracy while catching zero of the 47 actual leavers — still higher
+than this model's 0.765. Recall (0.660: 31 of 47 leavers caught) and
+precision (0.369: roughly 1 correct flag in 3) are what the choice above
+is actually justified on.
 
 Re-run in a second, independent process (`04_evaluate.py` invoked twice;
 `model.joblib` / `preprocessor.joblib` reloaded fresh each time, nothing
 shared in memory): **`metrics.json` came back byte-for-byte identical**
 — the Phase 10 acceptance criterion that a fresh process reproduces the
 recorded test metrics exactly was checked directly, not assumed.
+
+**These are final, sealed, held-out test-set metrics — not
+cross-validation, not out-of-fold.** `04_evaluate.py`'s own console output
+labels this explicitly ("FINAL SEALED TEST-SET METRICS ... distinct from
+every number in `cv_results.csv` or `threshold_sweep.csv`"), and this run
+(re-confirmed once more after the round-2 multi-seed sweep and
+calibration analysis above, model and threshold unchanged) is the
+authoritative final number for Phase 10. Precision and recall are
+threshold-based classification metrics, unaffected by the calibration
+finding above — that finding is about whether the raw probability value
+itself can be read as a percentage chance, not about whether the
+flag/no-flag decision at 0.550 is correct.
 
 ### Feature importances (|coefficient|, Logistic Regression, 21 encoded columns)
 
@@ -1006,9 +1195,16 @@ if per-prediction local explanations turn out to need it.
 Phase 9's copy, which was fit on the full dataset purely to prove the
 serialise/reload round-trip, never meant for training use),
 `feature_names.json` (the 17 raw `FEATURE_COLUMNS`, pre-encoding order),
-`cv_results.csv` (the six-row table above, exact), `metrics.json`
-(version `"1"`, model type, strategy, test metrics, confusion matrix,
-full feature-importance ranking).
+`cv_results.csv` (the six-row table above, exact), `decision_threshold.json`
+(0.550, model/strategy, and where it came from — written by `03_train.py`,
+read by `04_evaluate.py`), `threshold_sweep.csv` (round 1's frozen
+2,352-row single-seed sweep, superseded but retained for history),
+`threshold_sweep_multiseed.csv` (round 2's authoritative 9,408-row,
+4-seed sweep), `calibration_comparison.csv` (20 bin-rows, `n`/`n_positive`
+counts plus Brier/mean-predicted/prevalence summary for both Logistic
+Regression variants), `metrics.json` (version `"1"`, model type, strategy,
+decision threshold, test metrics, confusion matrix, full
+feature-importance ranking).
 
 ---
 

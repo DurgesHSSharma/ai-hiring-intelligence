@@ -2,23 +2,24 @@
   "version": "1",
   "model_type": "LogisticRegression",
   "imbalance_strategy": "smote",
+  "decision_threshold": 0.55,
   "test_set_size": 294,
   "test_set_positives": 47,
   "test_metrics": {
-    "accuracy": 0.7482993197278912,
-    "precision": 0.3516483516483517,
-    "recall": 0.6808510638297872,
-    "f1": 0.463768115942029,
+    "accuracy": 0.7653061224489796,
+    "precision": 0.36904761904761907,
+    "recall": 0.6595744680851063,
+    "f1": 0.4732824427480916,
     "roc_auc": 0.7843052803859075
   },
   "confusion_matrix": [
     [
-      188,
-      59
+      194,
+      53
     ],
     [
-      15,
-      32
+      16,
+      31
     ]
   ],
   "feature_importances": [
