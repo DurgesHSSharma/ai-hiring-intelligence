@@ -59,6 +59,21 @@ class AttritionArtifacts:
     calibration_brier_improvement_mean: float | None
     calibration_brier_improvement_std: float | None
 
+    # F9.7's frozen, ranking-derived risk-tier cutoffs (owner decision,
+    # Memory.md, superseding the original fixed-band design entirely - see
+    # ml/attrition/12_finalize_risk_tier.py). Loaded once here, at startup,
+    # never recomputed per request and never compared against the live
+    # employees table - the same "load once" discipline calibrated_threshold
+    # already follows.
+    risk_tier_high_cutoff: float
+    risk_tier_medium_cutoff: float
+    risk_tier_scheme: str
+    risk_tier_percentile_method: str
+    risk_tier_oof_seeds: list[int]
+    risk_tier_oof_population: int
+    risk_tier_derivation_date: str
+    risk_tier_known_limitation: str
+
 
 _artifacts: AttritionArtifacts | None = None
 
@@ -120,6 +135,15 @@ def load_artifacts(calibrated_model_path: str | Path) -> AttritionArtifacts:
             details={"artifact_dir": str(artifact_dir)},
         )
 
+    risk_tier_section = threshold_doc.get("risk_tier")
+    if not risk_tier_section:
+        raise ModelUnavailableError(
+            "decision_threshold.json has no 'risk_tier' section - run "
+            "ml/attrition/12_finalize_risk_tier.py to produce it.",
+            code="ATTRITION_MODEL_MISSING",
+            details={"artifact_dir": str(artifact_dir)},
+        )
+
     # Train-serve skew guard, checked once here rather than per request
     # (Phases.md Phase 11): preprocessor.joblib must have been fit on
     # exactly the raw columns feature_names.json records, and
@@ -164,6 +188,14 @@ def load_artifacts(calibrated_model_path: str | Path) -> AttritionArtifacts:
         calibration_known_limitation=str(calibrated_section.get("known_limitation", "")),
         calibration_brier_improvement_mean=calibrated_section.get("brier_improvement_vs_uncalibrated_mean"),
         calibration_brier_improvement_std=calibrated_section.get("brier_improvement_vs_uncalibrated_std"),
+        risk_tier_high_cutoff=float(risk_tier_section["high_cutoff"]),
+        risk_tier_medium_cutoff=float(risk_tier_section["medium_cutoff"]),
+        risk_tier_scheme=str(risk_tier_section["scheme"]),
+        risk_tier_percentile_method=str(risk_tier_section.get("percentile_method", "")),
+        risk_tier_oof_seeds=list(risk_tier_section.get("oof_seeds", [])),
+        risk_tier_oof_population=int(risk_tier_section.get("oof_population", 0)),
+        risk_tier_derivation_date=str(risk_tier_section.get("derivation_date", "")),
+        risk_tier_known_limitation=str(risk_tier_section.get("known_limitation", "")),
     )
 
 

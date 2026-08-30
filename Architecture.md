@@ -770,8 +770,9 @@ step in `ml/attrition/09_finalize_calibrated_model.py`):
 Startup: lifespan loads calibrated_model.joblib (probability) +
          model.joblib + preprocessor.joblib (explanations) +
          feature_names.json + decision_threshold.json
-         missing artefact → attrition endpoints return 503 ATTRITION_MODEL_MISSING,
-         everything else runs
+         missing artefact, missing "calibrated" section, or missing
+         "risk_tier" section → attrition endpoints return 503
+         ATTRITION_MODEL_MISSING, everything else runs
 
 POST /attrition/predict
    │
@@ -780,11 +781,17 @@ POST /attrition/predict
    ├─ calibrated_model.predict_proba → the served, calibrated probability
    ├─ decision_threshold.json's "calibrated" threshold (0.2005) → flagged bool
    ├─ preprocessor.transform + model.coef_ → top_factors (per-prediction, signed)
-   ├─ risk_level left null — PRD F9.7's bands are not yet owner-approved
-   │     against calibrated evidence (Memory.md decision 70); provisional
-   │     status returned alongside the null value, never silently finalized
+   ├─ decision_threshold.json's "risk_tier" cutoffs → risk_level (low/medium/high),
+   │     via attrition_service.compute_risk_tier() — F9.7 is resolved (owner
+   │     decision, Memory.md, 2026-08-30): a frozen, ranking-derived scheme from
+   │     the validated four-seed calibrated OOF distribution, loaded once at
+   │     startup, never recomputed against the live employees table or a
+   │     request's own population. Superseded the original fixed absolute-
+   │     probability bands (<30%/30-60%/>60%) entirely.
    └─ persist prediction if employee_id supplied, return result
 ```
+
+`risk_level`/binary `flagged` stay two separate concepts computed from two separate cutoffs (0.2005 for `flagged`, the frozen `risk_tier` cutoffs for `risk_level`) — neither is derived from the other.
 
 ---
 

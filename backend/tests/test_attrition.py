@@ -96,7 +96,7 @@ def _make_employee(db_session) -> Employee:
 # --- single prediction -------------------------------------------------
 
 
-def test_predict_returns_calibrated_probability_and_provisional_band(
+def test_predict_returns_calibrated_probability_and_resolved_tier(
     client, db_session, auth_headers, loaded_attrition_model
 ):
     response = client.post(
@@ -115,9 +115,11 @@ def test_predict_returns_calibrated_probability_and_provisional_band(
     for factor in body["top_factors"]:
         assert set(factor.keys()) == {"feature", "contribution"}
 
-    # F9.7 band: provisional/unresolved, never a silently-finalized value.
-    assert body["risk_level"] is None
-    assert "unresolved" in body["risk_level_status"].lower()
+    # F9.7 is resolved (owner decision, 2026-08-30): risk_level is always
+    # one of low/medium/high, computed from the frozen OOF-derived tier
+    # cutoffs - never null, never a live rank.
+    assert body["risk_level"] in {"low", "medium", "high"}
+    assert "resolved" in body["risk_level_status"].lower()
     assert body["calibration_known_limitation"]
     assert body["employee_id"] is None
     assert body["prediction_id"] is None
@@ -135,7 +137,10 @@ def test_predict_with_employee_id_persists_prediction(client, db_session, auth_h
 
     stored = db_session.query(AttritionPrediction).filter_by(employee_id=employee.id).one()
     assert stored.probability == pytest.approx(body["probability"], abs=1e-4)
-    assert stored.risk_level is None  # provisional, per F9.7
+    # F9.7 resolved: a real prediction always persists a real tier, matching
+    # the value in the response - never null now that a scheme is frozen.
+    assert stored.risk_level is not None
+    assert stored.risk_level.value == body["risk_level"]
 
 
 def test_predict_unknown_employee_id_returns_404(client, db_session, auth_headers, loaded_attrition_model):
@@ -255,7 +260,7 @@ def test_list_employees_without_predictions_has_null_latest(client, db_session, 
 # --- model info ------------------------------------------------------------
 
 
-def test_model_info_reports_configuration_and_unresolved_bands(client, db_session, auth_headers, loaded_attrition_model):
+def test_model_info_reports_configuration_and_resolved_risk_tier(client, db_session, auth_headers, loaded_attrition_model):
     response = client.get("/api/v1/attrition/model-info", headers=auth_headers)
     assert response.status_code == 200
     body = response.json()
@@ -263,9 +268,98 @@ def test_model_info_reports_configuration_and_unresolved_bands(client, db_sessio
     assert body["imbalance_strategy"] == "SMOTE"
     assert body["calibration_method"] == "sigmoid"
     assert body["calibrated_decision_threshold"] == pytest.approx(0.2005, abs=1e-6)
-    assert body["risk_band_status"] == "unresolved"
+    assert body["risk_band_status"] == "resolved"
     assert body["calibration_known_limitation"]
     assert len(body["feature_names"]) == 17
+
+    # F9.7's frozen, ranking-derived risk-tier scheme metadata.
+    assert body["risk_tier_scheme"] == "top10_high_next15_medium"
+    assert body["risk_tier_high_cutoff"] == pytest.approx(0.3671, abs=1e-4)
+    assert body["risk_tier_medium_cutoff"] == pytest.approx(0.2270, abs=1e-4)
+    assert body["risk_tier_oof_seeds"] == [42, 43, 44, 45]
+    assert body["risk_tier_oof_population"] == 1176
+    assert body["risk_tier_derivation_date"] == "2026-08-30"
+    assert body["risk_tier_known_limitation"]
+    # Binary threshold and risk tier stay separate concepts (owner decision):
+    # the tier cutoffs must never equal the binary decision threshold.
+    assert body["risk_tier_high_cutoff"] != body["calibrated_decision_threshold"]
+    assert body["risk_tier_medium_cutoff"] != body["calibrated_decision_threshold"]
+
+
+# --- risk-tier computation (F9.7, frozen empirical cutoffs) ---------------
+
+# The frozen, owner-approved cutoffs actually persisted in
+# decision_threshold.json's "risk_tier" section (also asserted directly
+# against the live artifact in test_model_info_reports_configuration_and_resolved_risk_tier
+# above) - hardcoded here too so this section tests compute_risk_tier() as a
+# pure boundary-logic unit, independent of artifact loading.
+HIGH_CUTOFF = 0.3671
+MEDIUM_CUTOFF = 0.2270
+
+
+@pytest.mark.parametrize(
+    "probability,expected_tier",
+    [
+        (MEDIUM_CUTOFF - 0.0001, "low"),  # immediately below Medium cutoff -> Low
+        (MEDIUM_CUTOFF, "medium"),  # exactly at Medium cutoff -> Medium
+        (MEDIUM_CUTOFF + 0.0001, "medium"),  # immediately above Medium cutoff -> Medium
+        (HIGH_CUTOFF - 0.0001, "medium"),  # immediately below High cutoff -> Medium
+        (HIGH_CUTOFF, "high"),  # exactly at High cutoff -> High
+        (HIGH_CUTOFF + 0.0001, "high"),  # immediately above High cutoff -> High
+        (0.05, "low"),  # representative Low value
+        (0.30, "medium"),  # representative Medium value
+        (0.70, "high"),  # representative High value
+        (0.0, "low"),
+        (1.0, "high"),
+    ],
+)
+def test_compute_risk_tier_boundaries(probability, expected_tier):
+    from app.services.attrition_service import compute_risk_tier
+
+    assert compute_risk_tier(probability, HIGH_CUTOFF, MEDIUM_CUTOFF) == expected_tier
+
+
+@pytest.mark.parametrize("invalid_probability", [float("nan"), float("inf"), float("-inf"), -0.0001, 1.0001])
+def test_compute_risk_tier_rejects_invalid_probability(invalid_probability):
+    from app.services.attrition_service import compute_risk_tier
+
+    with pytest.raises(ValueError):
+        compute_risk_tier(invalid_probability, HIGH_CUTOFF, MEDIUM_CUTOFF)
+
+
+def test_risk_tier_is_deterministic_not_a_live_percentile_rank(
+    client, db_session, auth_headers, loaded_attrition_model
+):
+    """The same employee features must produce the same risk_level whether
+    predicted alone or as part of a batch, and regardless of how many other
+    employee rows exist in the database - proving the tier is a frozen
+    lookup against fixed cutoffs, never a live rank against a population
+    that could change from one call to the next (owner decision, item 7/9)."""
+    single_response = client.post(
+        "/api/v1/attrition/predict", json=VALID_FEATURES, headers=auth_headers
+    )
+    single_body = single_response.json()
+
+    # Populate several employee rows so a live-ranking implementation would
+    # have a different population to rank against than an empty table.
+    for _ in range(5):
+        _make_employee(db_session)
+
+    batch_response = client.post(
+        "/api/v1/attrition/predict/batch",
+        json={"records": [VALID_FEATURES, VALID_FEATURES, VALID_FEATURES]},
+        headers=auth_headers,
+    )
+    batch_body = batch_response.json()
+
+    assert single_body["risk_level"] == batch_body["results"][0]["prediction"]["risk_level"]
+    assert single_body["probability"] == pytest.approx(
+        batch_body["results"][0]["prediction"]["probability"], abs=1e-6
+    )
+    # Every record in the batch gets the same tier too - not dependent on
+    # its position or on how many other records are in the same batch.
+    tiers = {item["prediction"]["risk_level"] for item in batch_body["results"]}
+    assert tiers == {single_body["risk_level"]}
 
 
 # --- missing artifact --------------------------------------------------

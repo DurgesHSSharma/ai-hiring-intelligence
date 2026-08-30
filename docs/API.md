@@ -556,11 +556,11 @@ Read-only — never calls the LLM. Returns the stored set for this candidate/job
 
 The model is loaded once, at application startup (not per request — PRD F9.6, Rules.md 4.6). If the artifact set is missing or inconsistent, every route below returns 503 `ATTRITION_MODEL_MISSING`; every other endpoint in the API stays healthy.
 
-Three concepts every prediction response keeps separate, never conflated (Memory.md decisions 67/69/70):
+Three concepts every prediction response keeps separate, never conflated (Memory.md decisions 67/69/70/72):
 
 1. `probability` — the sigmoid-calibrated probability itself (never the raw SMOTE classifier's own, uncalibrated output, which overstates real attrition risk by roughly 2.3–2.4x).
 2. `flagged` / `decision_threshold` — the binary operating cutoff (`0.2005`, the sigmoid-calibrated threshold — a different number from, and not a transform of, the `0.550` cutoff `ml/attrition/04_evaluate.py` uses for its own offline evaluation).
-3. `risk_level` / `risk_level_status` — the PRD F9.7 Low/Medium/High display band. This is **provisional**: `risk_level` is always `null` and `risk_level_status` always says why. F9.7's fixed `<30%/30-60%/>60%` boundaries have not been approved by the project owner against calibrated-probability evidence — the calibrated model's High band is thin (~2% of employees) and the calibration analysis found the top decile is itself under-predicted, meaning that band is more likely an undercount than an overcount. See `docs/EVALUATION.md`'s Phase 10 calibration amendment. The band logic exists (`attrition_service.py`'s `_compute_risk_band`, gated by `RISK_BAND_RESOLVED = False`) and activates with a one-line change once the project owner decides — no other file changes when that happens.
+3. `risk_level` / `risk_level_status` — the display risk tier. **F9.7 is resolved** (owner decision, Memory.md, 2026-08-30): `risk_level` is always exactly one of `low`/`medium`/`high` for a valid prediction, computed by a frozen, ranking-derived scheme built from the validated four-seed calibrated out-of-fold probability distribution — **not** the original PRD F9.7 fixed absolute-probability bands (`<30%`/`30-60%`/`>60%`), which this supersedes entirely, and **not** a live percentile rank against the current `employees` table (the cutoffs are frozen at derivation time and loaded once at startup, exactly like `decision_threshold`). See `GET /attrition/model-info` for the exact cutoffs and full derivation metadata, and `docs/EVALUATION.md`'s Phase 10 calibration amendment for the underlying discrimination evidence (`attrition_service.py`'s `compute_risk_tier()`, a pure function of `(probability, high_cutoff, medium_cutoff)` — never a database query).
 
 Gender, marital status, and "Over18" (Phase 9's excluded protected attributes) are not accepted fields on any attrition request — supplying one is rejected outright (`422`, `extra="forbid"`, the same convention used for `UserCreate`), not silently dropped.
 
@@ -608,11 +608,13 @@ Response (real values from a live call against the shipped model):
     { "feature": "overtime", "contribution": 0.83 },
     { "feature": "business_travel_Travel_Rarely", "contribution": -0.31 }
   ],
-  "risk_level": null,
-  "risk_level_status": "unresolved: PRD F9.7's Low/Medium/High boundaries (<30%/30-60%/>60%) have not been approved by the project owner against calibrated-probability evidence - the calibrated model's High band is thin (~2% of employees, likely an undercount given the top-decile calibration limitation). See docs/EVALUATION.md's Phase 10 calibration amendment and GET /attrition/model-info.",
+  "risk_level": "medium",
+  "risk_level_status": "resolved: risk_level is a frozen, ranking-derived tier (owner decision, 2026-08-30) built from the validated four-seed calibrated out-of-fold probability distribution - not the original PRD F9.7 fixed absolute-probability bands, and not a live percentile rank against the current employees table. See GET /attrition/model-info for the exact cutoffs and derivation, and docs/EVALUATION.md's Phase 10 calibration amendment for the underlying evidence.",
   "calibration_known_limitation": "The highest calibration bin under-predicts actual risk by roughly 12-15 percentage points (multi-seed confirmed, Memory.md decision 70) - the calibrated probability for the highest-risk employees is a conservative floor, not an exact figure."
 }
 ```
+
+`risk_level` is computed independently of `flagged`/`decision_threshold` — `flagged` uses `0.2005`, `risk_level` uses the frozen tier cutoffs (`0.3671` High / `0.2270` Medium, see `model-info` below). Neither is derived from the other, and neither ever changes based on what else is in the `employees` table or in the same batch request.
 
 `top_factors` is a per-prediction, signed decomposition (coefficient × this employee's own encoded feature value) from the uncalibrated model's coefficients — the same coefficient-magnitude convention `ml/attrition/metrics.json`'s global `feature_importances` already uses, evaluated per-row instead of globally. It is not SHAP (deferred, Memory.md decision 63) and is never used to compute `probability`.
 
@@ -659,7 +661,7 @@ Paginated (`?page=&page_size=`, `Page[EmployeeOut]` shape — see "System" above
       "...": "the remaining 15 business features",
       "latest_prediction": {
         "probability": 0.2461,
-        "risk_level": null,
+        "risk_level": "medium",
         "model_version": "1",
         "prediction_date": "2026-08-30T22:03:00Z"
       }
@@ -688,12 +690,22 @@ Paginated (`?page=&page_size=`, `Page[EmployeeOut]` shape — see "System" above
   "calibration_brier_improvement_mean": 0.0629,
   "calibration_brier_improvement_std": 0.0015,
   "calibration_known_limitation": "The highest calibration bin under-predicts actual risk by roughly 12-15 percentage points...",
-  "risk_band_status": "unresolved",
-  "risk_band_note": "unresolved: PRD F9.7's Low/Medium/High boundaries..."
+  "risk_band_status": "resolved",
+  "risk_band_note": "resolved: risk_level is a frozen, ranking-derived tier (owner decision, 2026-08-30)...",
+  "risk_tier_scheme": "top10_high_next15_medium",
+  "risk_tier_high_cutoff": 0.3671,
+  "risk_tier_medium_cutoff": 0.2270,
+  "risk_tier_percentile_method": "Per-seed p90 (High) / p75 (Medium) computed independently on each seed's own calibrated out-of-fold probability array, then averaged across seeds...",
+  "risk_tier_oof_seeds": [42, 43, 44, 45],
+  "risk_tier_oof_population": 1176,
+  "risk_tier_derivation_date": "2026-08-30",
+  "risk_tier_known_limitation": "The sigmoid calibration's highest decile under-predicts actual risk by roughly 12-15 percentage points..."
 }
 ```
 
 `raw_evaluation_metrics` is `ml/attrition/04_evaluate.py`'s sealed-test result at the uncalibrated `0.550` cutoff (Phase 10). `calibrated_evaluation_metrics` is the calibrated model's own sealed-test result at `0.2005` (`ml/attrition/09_finalize_calibrated_model.py`). Both are shown, clearly separated, rather than picking one.
+
+`risk_tier_*` fields are the full derivation record for `risk_level`'s frozen cutoffs (`ml/attrition/12_finalize_risk_tier.py`) — a consumer or auditor can see exactly which OOF population, seeds, percentiles, and date produced the two cutoffs without reading `decision_threshold.json` directly. These cutoffs are never equal to `calibrated_decision_threshold` (`0.2005`) — the binary flag and the display tier are deliberately independent numbers answering different questions.
 
 ---
 

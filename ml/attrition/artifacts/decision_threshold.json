@@ -36,5 +36,58 @@
       "n_test_positive": 47
     },
     "known_limitation": "The highest calibration bin under-predicts actual risk by roughly 12-15 percentage points (multi-seed confirmed, Memory.md decision 70) - the calibrated probability for the highest-risk employees is a conservative floor, not an exact figure."
+  },
+  "risk_tier": {
+    "scheme": "top10_high_next15_medium",
+    "high_cutoff": 0.3671,
+    "medium_cutoff": 0.227,
+    "percentile_method": "Per-seed p90 (High) / p75 (Medium) computed independently on each seed's own calibrated out-of-fold probability array (np.percentile), then averaged across seeds. Not a live percentile - frozen at derivation time from the validated training/OOF pool, never recomputed against the current employees table or a request's own population.",
+    "oof_seeds": [
+      42,
+      43,
+      44,
+      45
+    ],
+    "oof_population": 1176,
+    "derivation_date": "2026-08-30",
+    "source_analysis": [
+      "ml/attrition/10_risk_tier_percentile_analysis.py",
+      "ml/attrition/11_risk_tier_discrimination_analysis.py"
+    ],
+    "discrimination_evidence_4_seed": {
+      "top10_high_next15_medium": {
+        "high_pct_of_population": 10.03,
+        "high_attrition_rate_mean": 0.6271,
+        "high_attrition_rate_std": 0.012,
+        "high_leaver_capture_pct_mean": 38.95,
+        "high_leaver_capture_pct_std": 0.74,
+        "high_minus_low_separation_mean": 0.552,
+        "high_minus_low_separation_std": 0.0127,
+        "monotonic_all_4_seeds": true
+      },
+      "top5_high_next15_medium": {
+        "high_pct_of_population": 5.02,
+        "high_attrition_rate_mean": 0.6992,
+        "high_attrition_rate_std": 0.0349,
+        "high_leaver_capture_pct_mean": 21.71,
+        "high_leaver_capture_pct_std": 1.08,
+        "high_minus_low_separation_mean": 0.6132,
+        "high_minus_low_separation_std": 0.0363,
+        "monotonic_all_4_seeds": true
+      },
+      "top2_high_next14_medium": {
+        "high_pct_of_population": 2.04,
+        "high_attrition_rate_mean": 0.7812,
+        "high_attrition_rate_std": 0.0208,
+        "high_leaver_capture_pct_mean": 9.87,
+        "high_leaver_capture_pct_std": 0.27,
+        "high_minus_low_separation_mean": 0.6875,
+        "high_minus_low_separation_std": 0.0206,
+        "monotonic_all_4_seeds": true
+      }
+    },
+    "why_top10_selected": "Top 10% captures ~39% of actual OOF leavers versus ~22% for Top 5% and ~10% for Top 2%, while still separating High from Low by ~55 percentage points of observed attrition rate. Top 2% is the most concentrated but misses ~90% of actual leavers; Top 10% is the only candidate of the three that captures a clearly substantial share of leavers rather than a small minority. Owner decision, evidence-supported (Memory.md, this date) - not a default or a visual preference.",
+    "known_limitation": "The sigmoid calibration's highest decile under-predicts actual risk by roughly 12-15 percentage points (Memory.md decision 70, confirmed across all 4 seeds) - the ranking/ordering evidence behind this tier scheme is solid (monotonic and stable across seeds), but the displayed probability for employees deep in the High tier should be read as a conservative floor on real risk, not an exact figure. This is a calibration-tail limitation, not a defect in the tier boundaries themselves.",
+    "not_a_generalization_claim": "These cutoffs are frozen from the validated 1,176-row training/OOF population and are intended as a stable production display scheme. This does not claim that a future employee population will show exactly these same tier percentages or leaver-capture rates - it is a fixed rule applied consistently, not a live re-ranking against whichever population exists at prediction time."
   }
 }

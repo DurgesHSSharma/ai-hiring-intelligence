@@ -9,7 +9,7 @@ affects a fresh clone immediately, not because Phase 16 has started.
 
 `ml/attrition/artifacts/*.joblib` is gitignored by design (`Phases.md`
 Phase 0). A fresh clone therefore has no trained attrition model on disk.
-Two scripts must both be run before server startup can serve attrition
+Three scripts must all be run before server startup can serve attrition
 predictions — until then, Phase 11's attrition endpoints return
 `503 ATTRITION_MODEL_MISSING` at request time (every other endpoint is
 unaffected; startup itself does not fail):
@@ -17,6 +17,7 @@ unaffected; startup itself does not fail):
 ```bash
 python ml/attrition/03_train.py
 python ml/attrition/09_finalize_calibrated_model.py
+python ml/attrition/12_finalize_risk_tier.py
 ```
 
 This requires `data/raw/WA_Fn-UseC_-HR-Employee-Attrition.csv` to be
@@ -38,11 +39,20 @@ recommendation and asserts the result matches what was already validated
 before writing anything (see `Memory.md` decision 71); it does not retrain,
 reselect a model, or choose a new threshold.
 
-**A fresh setup is incomplete without the calibrated artifact.** Running
-only `03_train.py` produces `model.joblib` but not `calibrated_model.joblib`
-or `decision_threshold.json`'s `"calibrated"` section —
-`predictor.load_artifacts()` treats either one being missing as
-`ATTRITION_MODEL_MISSING`, by design (Phases.md Phase 11: a missing or
-inconsistent artifact set degrades only the attrition routes, loudly,
-rather than serving something partially built). Both commands above must
-be run.
+`12_finalize_risk_tier.py` persists the owner-approved, frozen empirical
+risk-tier cutoffs as `decision_threshold.json`'s `"risk_tier"` section —
+`0.3671` (High) / `0.2270` (Medium), derived from the four-seed calibrated
+out-of-fold probability distribution (Memory.md, 2026-08-30 owner
+decision, resolving PRD F9.7). It re-derives those same percentiles and
+asserts the result matches the recorded, approved values before writing
+anything; it does not choose a new scheme or recompute anything at
+request time.
+
+**A fresh setup is incomplete without both finalization steps.** Running
+only `03_train.py` produces `model.joblib` but not `calibrated_model.joblib`,
+`decision_threshold.json`'s `"calibrated"` section, or its `"risk_tier"`
+section — `predictor.load_artifacts()` treats any of the three being
+missing as `ATTRITION_MODEL_MISSING`, by design (Phases.md Phase 11: a
+missing or inconsistent artifact set degrades only the attrition routes,
+loudly, rather than serving something partially built). All three
+commands above must be run, in order.

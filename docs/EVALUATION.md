@@ -1464,6 +1464,59 @@ prose above exactly — and the known top-decile limitation). The existing
 top-level `threshold: 0.550` field, `model.joblib`, `preprocessor.joblib`, and
 `metrics.json` are untouched. See Memory.md decision 71.
 
+### F9.7 resolved — frozen, ranking-derived risk tier (owner decision, 2026-08-30)
+
+**Context this decision was made against, restated briefly (full detail in "Calibration amendment" above, unchanged and preserved):** sigmoid calibration was validated across seeds 42/43/44/45 (mean Brier improvement 0.0629 ± 0.0015 vs. uncalibrated), with one confirmed limitation — the highest calibration bin systematically under-predicts actual risk by ~12-15 percentage points in every seed. Isotonic calibration was tested specifically to fix that tail gap and explicitly rejected: worse log loss in all 4 seeds, exact 0/1 boundary saturation, increased instability in the bin below the top, a near-tripled F9.7 High band, and lower sealed-test recall/F1 (0.617/0.464 vs. sigmoid's 0.660/0.477) — none of that evidence was used to pick between methods; it was computed and reviewed only after sigmoid was already selected from training/OOF evidence alone. **None of this changed here** — same model, same calibration method, same 0.2005 binary threshold.
+
+PRD F9.7's original design (fixed absolute-probability bands, `<30%`/`30-60%`/`>60%`) was measured against the calibrated distribution and found to produce a thin High band (~2% of employees) that the top-decile limitation above suggests is an undercount, not an overcount (Memory.md decision 70). That tension was carried forward, unresolved, through Phase 11's initial build — `risk_level` shipped `null` on every response, with an explicit `risk_level_status` explaining why, gated behind `attrition_service.RISK_BAND_RESOLVED = False`.
+
+**An alternative was proposed and evaluated: a frozen, ranking-derived tier instead of a fixed-probability one** — a Low/Medium/High cut based on where a probability falls in the validated calibrated OOF distribution, not on what the probability's absolute value is claimed to mean. Two new analysis scripts (`10_risk_tier_percentile_analysis.py`, `11_risk_tier_discrimination_analysis.py`, both self-labelled "ANALYSIS ONLY" and reusing `07_calibration_multiseed.py`'s exact functions via `importlib`, same convention as `08`/`09`) derived this from OOF data only — the sealed test set was never opened for this work.
+
+**Percentile cutoffs, four seeds, calibrated OOF probability (n=1,176 per seed):**
+
+```
+percentile  mean     std     relative_std   range
+p75         0.2270   0.0016  0.7%           [0.2252, 0.2291]
+p90         0.3671   0.0046  1.3%           [0.3591, 0.3702]
+```
+
+Both stable across seeds (relative std well under 2%, comparable to the 0.2005 threshold's own cross-seed spread).
+
+**Discrimination evidence — does each candidate scheme actually separate real leavers from real stayers?** (OOF only, n=1,176, 190 leavers; per-seed tier cutoffs, monotonicity checked directly against the real label):
+
+```
+scheme                        High size   High attrition rate   High leaver capture   High-Low separation   monotonic (High>Med>Low), all 4 seeds
+top10_high_next15_medium      10.03%      62.71% ± 1.20          38.95% ± 0.74%        55.20 ± 1.27 pts       True
+top5_high_next15_medium        5.02%      69.92% ± 3.49          21.71% ± 1.08%        61.32 ± 3.63 pts       True
+top2_high_next14_medium        2.04%      78.12% ± 2.08           9.87% ± 0.27%        68.75 ± 2.06 pts       True
+```
+
+All three schemes are internally valid — monotonic in every one of the 4 seeds, with large, stable separation between High and Low. They differ along a genuine capture-vs-purity trade-off (the same character as decision 66's recall-target choice, not a new phenomenon): a smaller High tier is more concentrated but catches far fewer actual leavers.
+
+**Owner decision: Top 10% High / next 15% Medium / remaining 75% Low.** Rationale, evidence-based rather than a default or visual preference: Top 10% captures ~39% of actual OOF leavers versus ~22% for Top 5% and ~10% for Top 2%, while still separating High from Low by ~55 percentage points of observed attrition rate — a large gap by any reasonable standard. Top 2% is the most concentrated of the three but misses roughly 90% of actual leavers, a narrow reach for a tier meant to flag people worth a look. Top 10% is the only candidate of the three that captures a clearly substantial share of leavers rather than a small minority of them.
+
+**Frozen cutoffs, persisted by `ml/attrition/12_finalize_risk_tier.py`** (re-derives the same 4-seed percentiles and asserts the result matches the recorded, owner-approved values before writing anything — the same drift-guard discipline `09_finalize_calibrated_model.py` already established):
+
+```
+High cutoff:    0.3671  (mean p90, calibrated OOF probability)
+Medium cutoff:  0.2270  (mean p75, calibrated OOF probability)
+Low:            probability < 0.2270
+Derivation date:      2026-08-30
+OOF seeds:            42, 43, 44, 45
+OOF population:       1,176 rows
+Source analysis:      10_risk_tier_percentile_analysis.py, 11_risk_tier_discrimination_analysis.py
+```
+
+Stored in `decision_threshold.json`'s new `"risk_tier"` section, alongside the untouched top-level `threshold` (0.550, evaluation-only) and `"calibrated"` (0.2005, the binary serving threshold) sections. Loaded once at startup by `predictor.load_artifacts()`, exposed via `GET /attrition/model-info`.
+
+**What this is, and what it explicitly is not:**
+- It is a frozen lookup against two fixed probability cutoffs, computed once from the validated 1,176-row training/OOF population. `attrition_service.compute_risk_tier(probability, high_cutoff, medium_cutoff)` is a pure function — no database query, no dependency on which other employees exist or what else is in the same batch request. The same probability always produces the same tier.
+- It is **not** a live percentile rank. It never opens the `employees` table, never recomputes anything at request time, and does not claim that a future population will show exactly these same tier percentages or leaver-capture rates — it is a stable production display rule, verified stable across 4 independent seeds of the population it was derived from, not a guarantee about populations it hasn't seen.
+- It does **not** replace or interact with the binary decision threshold (0.2005). `flagged` and `risk_level` remain two separate answers to two separate questions, computed from two separate numbers.
+- The calibration tail limitation above still applies to the *displayed probability* for employees deep in the High tier (a conservative floor, not an exact figure) — it does not undermine the tier boundary itself, since the discrimination evidence above is based on ordering/ranking, which is far more robust to that specific miscalibration than any individual probability reading would be.
+
+**This supersedes PRD F9.7's original fixed-band definition (`<30%`/`30-60%`/`>60%`) entirely** — that definition is no longer active anywhere in serving code and is documented here, and in Memory.md, as superseded rather than deleted from the record.
+
 ### Artifacts
 
 `ml/attrition/artifacts/`: `model.joblib` (fitted
@@ -1485,6 +1538,12 @@ feature-importance ranking), and, from Phase 11's finalization step,
 `calibrated_model.joblib` (the fitted, sigmoid-calibrated
 `CalibratedClassifierCV` — the artifact actually served) plus
 `decision_threshold.json`'s new `"calibrated"` sub-object (see above).
+`decision_threshold.json` also carries a `"risk_tier"` sub-object (F9.7
+resolution, see above), plus two purely analytical CSVs from the
+percentile/discrimination analysis that produced it —
+`risk_tier_percentile_analysis.csv`, `risk_tier_scheme_illustrations.csv`,
+`risk_tier_discrimination_analysis.csv` — none of which are read by
+serving code; they exist as the evidence trail behind the frozen cutoffs.
 
 ---
 

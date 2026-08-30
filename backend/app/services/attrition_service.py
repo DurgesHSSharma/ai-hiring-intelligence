@@ -4,6 +4,7 @@ never HTTPException (Rules.md 5.2).
 """
 from __future__ import annotations
 
+import math
 from datetime import datetime, timezone
 
 from sqlalchemy import func
@@ -15,7 +16,7 @@ from app.ml.attrition import features, predictor
 from app.models.attrition_prediction import AttritionPrediction
 from app.models.employee import Employee
 from app.schemas.attrition import (
-    RISK_LEVEL_UNRESOLVED_STATUS,
+    RISK_LEVEL_TIER_STATUS,
     AttritionBatchPredictRequest,
     AttritionBatchPredictResponse,
     AttritionBatchResultItem,
@@ -28,38 +29,42 @@ from app.schemas.attrition import (
 )
 from app.schemas.common import Page
 
-# F9.7's boundaries - configurable, deliberately NOT applied (see
-# RISK_BAND_RESOLVED below). Kept here rather than inline so a future
-# owner-approved value change is a one-line edit, not a code restructure.
-RISK_BAND_LOW_MAX = 0.30
-RISK_BAND_HIGH_MIN = 0.60
 
-# Mirrors app/ml/skills/skill_gap.py's THRESHOLD_VALIDATED gate (Phase 7): a
-# contentious constant is coded and ready, but refuses to activate until a
-# named authority signs off. Here: PRD F9.7's fixed bands, checked against
-# calibrated-probability evidence and found thin / likely-undercounting in
-# the High band (Memory.md decision 70) - a product decision for the
-# project owner, not something engineering resolves by shipping anyway.
-# Flip only after that explicit approval; until then _compute_risk_band()
-# always returns None, and every response says so via
-# RISK_LEVEL_UNRESOLVED_STATUS rather than silently omitting the field.
-RISK_BAND_RESOLVED = False
+def compute_risk_tier(probability: float, high_cutoff: float, medium_cutoff: float) -> RiskLevel:
+    """F9.7's risk tier, resolved by explicit owner decision (Memory.md,
+    2026-08-30): a frozen, ranking-derived three-tier scheme built from the
+    validated four-seed calibrated OOF probability distribution
+    (ml/attrition/10_risk_tier_percentile_analysis.py,
+    11_risk_tier_discrimination_analysis.py), NOT the original PRD F9.7
+    fixed absolute-probability bands (<30%/30-60%/>60%), which this
+    supersedes entirely - see decision_threshold.json's "risk_tier" section
+    for the exact cutoffs and their derivation.
 
+    A pure, centralized function: cutoffs are passed in (loaded once at
+    startup from predictor.get_artifacts(), never hardcoded here and never
+    recomputed against a live table), so the same probability always maps
+    to the same tier regardless of what else is in the database or in a
+    batch request - deliberately not a live percentile rank.
 
-def _compute_risk_band(probability: float) -> RiskLevel | None:
-    """Isolated, pluggable F9.7 risk band. Returns None unconditionally
-    while RISK_BAND_RESOLVED is False (Phases.md Phase 11: "do not silently
-    apply the existing bands and present them as finalized") - the boundary
-    logic below is ready to use the moment that flips, with no other file
-    needing to change.
+    Raises:
+        ValueError: probability is NaN, infinite, or outside [0, 1] - an
+            invalid probability must never silently produce a tier
+            (Rules.md 5.1: "never swallow", 5.4: "probabilities are clamped
+            to [0, 1]" - a value that still isn't in range at this point is
+            an internal invariant violation, not a client input error, so
+            it is not wrapped in a domain AppError and is left to surface
+            as INTERNAL_ERROR via the catch-all handler).
     """
-    if not RISK_BAND_RESOLVED:
-        return None
-    if probability < RISK_BAND_LOW_MAX:
-        return RiskLevel.LOW
-    if probability > RISK_BAND_HIGH_MIN:
+    if math.isnan(probability) or math.isinf(probability) or not (0.0 <= probability <= 1.0):
+        raise ValueError(
+            f"compute_risk_tier() received an invalid probability: {probability!r}. "
+            "Probabilities must be finite and in [0, 1]."
+        )
+    if probability >= high_cutoff:
         return RiskLevel.HIGH
-    return RiskLevel.MEDIUM
+    if probability >= medium_cutoff:
+        return RiskLevel.MEDIUM
+    return RiskLevel.LOW
 
 
 def _get_employee_or_404(db: Session, employee_id: int) -> Employee:
@@ -71,13 +76,13 @@ def _get_employee_or_404(db: Session, employee_id: int) -> Employee:
     return employee
 
 
-def _run_prediction(payload: AttritionPredictRequest) -> tuple[float, bool, list[dict], RiskLevel | None]:
+def _run_prediction(payload: AttritionPredictRequest) -> tuple[float, bool, list[dict], RiskLevel]:
     artifacts = predictor.get_artifacts()
     feature_row = features.build_feature_row(payload, artifacts.feature_names)
     probability = predictor.predict_proba(feature_row)
     flagged = probability >= artifacts.calibrated_threshold
     factors = predictor.top_factors(feature_row)
-    risk_level = _compute_risk_band(probability)
+    risk_level = compute_risk_tier(probability, artifacts.risk_tier_high_cutoff, artifacts.risk_tier_medium_cutoff)
     return probability, flagged, factors, risk_level
 
 
@@ -87,7 +92,7 @@ def _to_response(
     probability: float,
     flagged: bool,
     factors: list[dict],
-    risk_level: RiskLevel | None,
+    risk_level: RiskLevel,
     prediction_id: int | None,
 ) -> AttritionPredictResponse:
     artifacts = predictor.get_artifacts()
@@ -103,12 +108,12 @@ def _to_response(
         model_version=artifacts.model_version,
         top_factors=[TopFactorOut(**f) for f in factors],
         risk_level=risk_level,
-        risk_level_status=RISK_LEVEL_UNRESOLVED_STATUS,
+        risk_level_status=RISK_LEVEL_TIER_STATUS,
         calibration_known_limitation=artifacts.calibration_known_limitation,
     )
 
 
-def _persist(db: Session, employee_id: int, probability: float, risk_level: RiskLevel | None, factors: list[dict]) -> int:
+def _persist(db: Session, employee_id: int, probability: float, risk_level: RiskLevel, factors: list[dict]) -> int:
     row = AttritionPrediction(
         employee_id=employee_id,
         probability=probability,
@@ -280,4 +285,12 @@ def get_model_info() -> ModelInfoResponse:
         calibration_brier_improvement_mean=artifacts.calibration_brier_improvement_mean,
         calibration_brier_improvement_std=artifacts.calibration_brier_improvement_std,
         calibration_known_limitation=artifacts.calibration_known_limitation,
+        risk_tier_scheme=artifacts.risk_tier_scheme,
+        risk_tier_high_cutoff=artifacts.risk_tier_high_cutoff,
+        risk_tier_medium_cutoff=artifacts.risk_tier_medium_cutoff,
+        risk_tier_percentile_method=artifacts.risk_tier_percentile_method,
+        risk_tier_oof_seeds=artifacts.risk_tier_oof_seeds,
+        risk_tier_oof_population=artifacts.risk_tier_oof_population,
+        risk_tier_derivation_date=artifacts.risk_tier_derivation_date,
+        risk_tier_known_limitation=artifacts.risk_tier_known_limitation,
     )

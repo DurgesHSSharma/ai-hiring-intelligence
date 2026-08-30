@@ -1,12 +1,17 @@
 """Attrition serving schemas (PRD F9.5-F9.9, F11; Phases.md Phase 11).
 
 Three concepts this module keeps deliberately distinct on every response,
-per explicit instruction (Memory.md decision 67/70):
+per explicit instruction (Memory.md decision 67/70/72):
   1. `probability` - the sigmoid-calibrated probability itself.
   2. `flagged` / `decision_threshold` - the binary operating cutoff (0.2005).
-  3. `risk_level` / `risk_level_status` - the three-way display band, left
-     null and explicitly marked unresolved until PRD F9.7 is approved
-     against calibrated evidence (Memory.md decision 70).
+  3. `risk_level` / `risk_level_status` - the three-way display tier. F9.7
+     is resolved (Memory.md, 2026-08-30 owner decision): a frozen,
+     ranking-derived scheme built from the validated four-seed calibrated
+     OOF probability distribution, NOT the original fixed absolute-
+     probability bands (<30%/30-60%/>60%), which this supersedes entirely.
+     `risk_level` is always one of low/medium/high for a valid prediction -
+     never null, never a live percentile against the current employees
+     table or a request's own population.
 A response never conflates these under one name.
 """
 from __future__ import annotations
@@ -20,14 +25,17 @@ from app.core.enums import RiskLevel
 
 MAX_BATCH_SIZE = 500
 
-# Shown verbatim wherever risk_level is null - never silently omitted, so a
-# caller can't mistake "unresolved" for "no risk". See attrition_service.py.
-RISK_LEVEL_UNRESOLVED_STATUS = (
-    "unresolved: PRD F9.7's Low/Medium/High boundaries (<30%/30-60%/>60%) have not "
-    "been approved by the project owner against calibrated-probability evidence - "
-    "the calibrated model's High band is thin (~2% of employees, likely an "
-    "undercount given the top-decile calibration limitation). See "
-    "docs/EVALUATION.md's Phase 10 calibration amendment and GET /attrition/model-info."
+# Shown on every prediction response - explains what risk_level actually
+# means now that F9.7 is resolved, so a caller never has to guess whether
+# it's a live rank or a fixed rule. See attrition_service.py.
+RISK_LEVEL_TIER_STATUS = (
+    "resolved: risk_level is a frozen, ranking-derived tier (owner decision, "
+    "2026-08-30) built from the validated four-seed calibrated out-of-fold "
+    "probability distribution - not the original PRD F9.7 fixed absolute-"
+    "probability bands, and not a live percentile rank against the current "
+    "employees table. See GET /attrition/model-info for the exact cutoffs "
+    "and derivation, and docs/EVALUATION.md's Phase 10 calibration amendment "
+    "for the underlying evidence."
 )
 
 
@@ -100,7 +108,9 @@ class AttritionPredictResponse(BaseModel):
 
     top_factors: list[TopFactorOut]
 
-    risk_level: RiskLevel | None
+    # Always one of low/medium/high for a valid prediction - F9.7 resolved,
+    # see this module's docstring and RISK_LEVEL_TIER_STATUS.
+    risk_level: RiskLevel
     risk_level_status: str
 
     calibration_known_limitation: str
@@ -170,5 +180,17 @@ class ModelInfoResponse(BaseModel):
     calibration_brier_improvement_std: float | None = None
     calibration_known_limitation: str
 
-    risk_band_status: Literal["unresolved"] = "unresolved"
-    risk_band_note: str = RISK_LEVEL_UNRESOLVED_STATUS
+    risk_band_status: Literal["resolved"] = "resolved"
+    risk_band_note: str = RISK_LEVEL_TIER_STATUS
+
+    # F9.7's frozen, ranking-derived risk-tier scheme - full derivation
+    # metadata so a consumer/auditor never has to go read
+    # decision_threshold.json directly to understand what risk_level means.
+    risk_tier_scheme: str
+    risk_tier_high_cutoff: float
+    risk_tier_medium_cutoff: float
+    risk_tier_percentile_method: str
+    risk_tier_oof_seeds: list[int]
+    risk_tier_oof_population: int
+    risk_tier_derivation_date: str
+    risk_tier_known_limitation: str
