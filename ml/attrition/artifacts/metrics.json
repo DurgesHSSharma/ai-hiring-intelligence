@@ -1,0 +1,110 @@
+{
+  "version": "1",
+  "model_type": "LogisticRegression",
+  "imbalance_strategy": "smote",
+  "test_set_size": 294,
+  "test_set_positives": 47,
+  "test_metrics": {
+    "accuracy": 0.7482993197278912,
+    "precision": 0.3516483516483517,
+    "recall": 0.6808510638297872,
+    "f1": 0.463768115942029,
+    "roc_auc": 0.7843052803859075
+  },
+  "confusion_matrix": [
+    [
+      188,
+      59
+    ],
+    [
+      15,
+      32
+    ]
+  ],
+  "feature_importances": [
+    [
+      "binary__overtime",
+      1.7030685940051848
+    ],
+    [
+      "categorical__business_travel_Non-Travel",
+      1.001327486574676
+    ],
+    [
+      "categorical__business_travel_Travel_Frequently",
+      0.8785977916433191
+    ],
+    [
+      "numeric__years_with_curr_manager",
+      0.6607137961698216
+    ],
+    [
+      "numeric__stock_option_level",
+      0.5724461263193685
+    ],
+    [
+      "numeric__years_since_last_promotion",
+      0.5407239200742838
+    ],
+    [
+      "numeric__environment_satisfaction",
+      0.4565013857045187
+    ],
+    [
+      "numeric__job_satisfaction",
+      0.42525882083879507
+    ],
+    [
+      "numeric__monthly_income",
+      0.4189127660820027
+    ],
+    [
+      "categorical__department_Sales",
+      0.4101626507368692
+    ],
+    [
+      "numeric__percent_salary_hike",
+      0.3417797059272917
+    ],
+    [
+      "numeric__age",
+      0.31736327282875204
+    ],
+    [
+      "numeric__total_working_years",
+      0.2753315098915789
+    ],
+    [
+      "categorical__department_Research & Development",
+      0.26220866122156894
+    ],
+    [
+      "numeric__relationship_satisfaction",
+      0.21162944273375522
+    ],
+    [
+      "numeric__distance_from_home",
+      0.21137859557706262
+    ],
+    [
+      "numeric__performance_rating",
+      0.17125428558548847
+    ],
+    [
+      "categorical__department_Human Resources",
+      0.15093061090025128
+    ],
+    [
+      "categorical__business_travel_Travel_Rarely",
+      0.11975307354644965
+    ],
+    [
+      "numeric__years_at_company",
+      0.049949870254501434
+    ],
+    [
+      "numeric__job_level",
+      0.04386142769605839
+    ]
+  ]
+}

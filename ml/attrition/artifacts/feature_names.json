@@ -1,0 +1,19 @@
+[
+  "age",
+  "distance_from_home",
+  "monthly_income",
+  "percent_salary_hike",
+  "total_working_years",
+  "years_at_company",
+  "years_since_last_promotion",
+  "years_with_curr_manager",
+  "job_level",
+  "job_satisfaction",
+  "environment_satisfaction",
+  "relationship_satisfaction",
+  "performance_rating",
+  "stock_option_level",
+  "department",
+  "business_travel",
+  "overtime"
+]

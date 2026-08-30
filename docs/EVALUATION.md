@@ -845,9 +845,180 @@ longer fails outright on an ordinary real resume.
 
 ---
 
-## Phase 9+ evaluations
+## Phase 10 — Attrition model selection and evaluation
 
-Not yet built. This section will gain skill-matching precision/recall/F1
-(once semantic matching exists), the LLM question-quality ratings
-described above, and attrition model metrics as each phase completes —
-see `Phases.md` Phase 13.
+### Methodology
+
+Same 1,470-row dataset as Phase 9's EDA
+(`data/raw/WA_Fn-UseC_-HR-Employee-Attrition.csv`), the same 17 raw
+feature columns from `02_preprocessing.FEATURE_COLUMNS`. 80/20 stratified
+train/test split, `random_state=42`: 1,176 training rows (190 positive),
+294 test rows (47 positive). The preprocessing pipeline (impute/scale
+numeric, impute/one-hot categorical, passthrough `overtime`) is fit on
+the training split only; the test split is transformed with that fitted
+preprocessor and not looked at again until the one evaluation run below.
+
+Three model families (Logistic Regression, Random Forest, XGBoost) x two
+imbalance-handling strategies (class-weighting vs. SMOTE) — six
+configurations, compared by 5-fold `StratifiedKFold` cross-validation
+(`random_state=42`) on the training split only. SMOTE runs inside an
+`imblearn.pipeline.Pipeline` passed directly as the cross-validated
+estimator, so resampling is refit on each fold's training portion alone —
+a validation fold's rows are never used to generate a synthetic training
+neighbour. Class-weighted configurations use `class_weight="balanced"`
+(Logistic Regression, Random Forest) or `scale_pos_weight` set from the
+training fold's real class ratio (XGBoost has no `class_weight`
+parameter). Script: `ml/attrition/03_train.py`.
+
+### Six-way comparison (5-fold CV, training split only, test set untouched)
+
+```
+model          strategy                accuracy        precision       recall          f1              roc_auc
+logreg         class_weight_balanced   0.727 +/- 0.013 0.344 +/- 0.013 0.758 +/- 0.071 0.472 +/- 0.022 0.803 +/- 0.043
+logreg         smote                   0.742 +/- 0.013 0.356 +/- 0.019 0.737 +/- 0.088 0.479 +/- 0.033 0.804 +/- 0.036
+random_forest  class_weight_balanced   0.855 +/- 0.008 0.765 +/- 0.192 0.168 +/- 0.039 0.270 +/- 0.047 0.778 +/- 0.024
+random_forest  smote                   0.859 +/- 0.007 0.615 +/- 0.048 0.347 +/- 0.045 0.442 +/- 0.037 0.803 +/- 0.037
+xgboost        class_weight_balanced   0.841 +/- 0.027 0.526 +/- 0.119 0.363 +/- 0.054 0.427 +/- 0.072 0.773 +/- 0.039
+xgboost        smote                   0.861 +/- 0.021 0.617 +/- 0.105 0.389 +/- 0.063 0.476 +/- 0.074 0.786 +/- 0.041
+```
+
+Every number is a mean ± standard deviation across 5 folds of roughly 190
+training positives (so each validation fold holds about 38). Read the
+standard deviation, not just the mean: Random Forest with
+`class_weight="balanced"` posts the single highest precision in the
+table (0.765) but with a std of 0.192 — on some folds it predicts "Yes"
+so rarely that its precision estimate swings on a handful of predictions.
+That number is not more trustworthy for being higher.
+
+### Before/after imbalance handling, per model
+
+Recall is the metric imbalance-handling is meant to move, since the
+un-handled failure mode is a classifier that mostly predicts the
+majority class:
+
+- **Logistic Regression:** 0.758 -> 0.737 (roughly flat — `class_weight="balanced"` alone already gets a linear model most of the way here; SMOTE trades a touch of recall for a touch of precision and accuracy).
+- **Random Forest:** 0.168 -> 0.347 (SMOTE roughly doubles recall — `class_weight="balanced"` alone leaves this model badly under-serving the minority class).
+- **XGBoost:** 0.363 -> 0.389 (a modest gain).
+
+### Model selection
+
+`03_train.py` selects automatically by the highest CV F1 (a single
+scalar standing in for "recall and precision jointly," not accuracy) and
+picked **Logistic Regression + SMOTE** (F1 = 0.479 ± 0.033). Its margin
+over **XGBoost + SMOTE** (F1 = 0.476 ± 0.074) sits inside both
+configurations' noise band and is not by itself a real finding — with
+~190 positives in the training fold, this dataset cannot currently
+distinguish the two on F1 alone.
+
+What *is* a reseeding-resistant difference between those same two
+candidates is the recall/precision trade: Logistic Regression + SMOTE
+recalls 0.737 ± 0.088 at 0.356 ± 0.019 precision; XGBoost + SMOTE recalls
+0.389 ± 0.063 at 0.617 ± 0.105 precision. Those bands do not overlap —
+Logistic Regression + SMOTE catches roughly twice as many actual leavers,
+at the cost of roughly twice as many false alarms per true positive
+caught.
+
+**Judgment call, recorded for the project owner to override:** this
+project ships Logistic Regression + SMOTE on the reasoning that a missed
+leaver (false negative) forecloses any chance to intervene, while a false
+positive costs a check-in conversation with someone who was not actually
+at risk — and per Rules.md §9 a risk flag never auto-acts on an employee,
+a person still reviews it. That asymmetry favors recall. This is a
+business-value judgment, not a statistical result; the alternative
+(XGBoost + SMOTE — better precision, meaningfully lower recall) is a
+defensible opposite call if HR attention is the scarcer resource.
+
+### Sealed test-set evaluation (opened once, `04_evaluate.py`)
+
+294 rows, 47 positive. Logistic Regression + SMOTE, loaded fresh from
+`model.joblib` / `preprocessor.joblib`:
+
+```
+accuracy   0.748
+precision  0.352
+recall     0.681
+f1         0.464
+roc_auc    0.784
+confusion matrix [[TN, FP], [FN, TP]]: [[188, 59], [15, 32]]
+```
+
+All five numbers land within one CV standard deviation of the
+cross-validated estimate above — the CV table was not an optimistic
+preview of a number the test set then failed to reproduce.
+
+**Accuracy is reported for completeness, not as the basis for model
+choice.** Predicting "No" for every one of these 294 rows scores 0.840
+accuracy while catching zero of the 47 actual leavers — higher than this
+model's 0.748. Recall (0.681: 32 of 47 leavers caught) and precision
+(0.352: roughly 1 correct flag in 3) are what the choice above is
+actually justified on.
+
+Re-run in a second, independent process (`04_evaluate.py` invoked twice;
+`model.joblib` / `preprocessor.joblib` reloaded fresh each time, nothing
+shared in memory): **`metrics.json` came back byte-for-byte identical**
+— the Phase 10 acceptance criterion that a fresh process reproduces the
+recorded test metrics exactly was checked directly, not assumed.
+
+### Feature importances (|coefficient|, Logistic Regression, 21 encoded columns)
+
+```
+binary__overtime                                1.7031
+categorical__business_travel_Non-Travel         1.0013
+categorical__business_travel_Travel_Frequently  0.8786
+numeric__years_with_curr_manager                0.6607  [D61 - confounded with tenure/career stage]
+numeric__stock_option_level                     0.5724
+numeric__years_since_last_promotion             0.5407  [D61 - confounded with tenure/career stage]
+numeric__environment_satisfaction               0.4565
+numeric__job_satisfaction                       0.4253
+numeric__monthly_income                         0.4189
+categorical__department_Sales                   0.4102
+```
+(full 21-column ranking in `ml/attrition/artifacts/metrics.json`)
+
+**`performance_rating` (decision 56's near-constant-distribution concern)
+ranks 17th of 21** — importance 0.171, near the bottom, not a
+misleadingly prominent factor. The concern that flagged it (only ratings
+3 and 4 occur in this dataset) did not materialize into an inflated
+importance for this model; checked directly rather than assumed clear.
+
+**`years_with_curr_manager` and `years_since_last_promotion` rank 4th and
+6th respectively** — per decision 61 / Phases.md's D61, neither may be
+read as an independent "tenure causes attrition" signal on its own; the
+EDA-stage finding that `years_since_last_promotion`'s pooled attrition
+association reverses direction once tenure is controlled for applies
+here too. `years_at_company` itself ranks near the bottom (20th of 21,
+0.050) despite the other two tenure-adjacent features ranking high,
+consistent with those two carrying more independent signal than raw
+company tenure alone.
+
+SHAP was not run this phase. `Phases.md` marks it conditional ("only if
+it does not push inference past 500 ms") and it is not a Phase 10
+acceptance criterion; the coefficient-based ranking above already
+satisfies the "feature importances" build item and the
+`performance_rating`/D61 checks it exists to support. Left for Phase 11
+if per-prediction local explanations turn out to need it.
+
+### Artifacts
+
+`ml/attrition/artifacts/`: `model.joblib` (fitted
+`imblearn.pipeline.Pipeline`, SMOTE + `LogisticRegression`),
+`preprocessor.joblib` (refit on the training split only — supersedes
+Phase 9's copy, which was fit on the full dataset purely to prove the
+serialise/reload round-trip, never meant for training use),
+`feature_names.json` (the 17 raw `FEATURE_COLUMNS`, pre-encoding order),
+`cv_results.csv` (the six-row table above, exact), `metrics.json`
+(version `"1"`, model type, strategy, test metrics, confusion matrix,
+full feature-importance ranking).
+
+---
+
+## Still pending (Phase 13)
+
+Not yet built: `ml/ranking_eval/` (Precision@K/Recall@K/NDCG,
+TF-IDF vs. embedding), `ml/skill_eval/` (precision/recall/F1 on 30
+labelled resumes — also what the semantic skill-match threshold needs
+validated against before it can be enabled), the formal `ml/llm_eval/`
+human 1-5 question-quality rating study (integration is verified per the
+Phase 8 section above; quality at scale is not yet measured), the
+two-column PDF extraction revisit, and score-band threshold calibration
+per scoring method. See `Phases.md` Phase 13.
