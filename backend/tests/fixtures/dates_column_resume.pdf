@@ -1,0 +1,84 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier >>
+endobj
+4 0 obj
+<< /Length 1124 >>
+stream
+BT
+/F1 10 Tf
+60 750 Td
+(Jordan Lee - Resume) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Jordan Lee) Tj
+0 -14 Td
+(Data Engineer) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(SUMMARY) Tj
+0 -14 Td
+(Data engineer with six years of experience building pipelines and) Tj
+0 -14 Td
+(warehouse infrastructure on cloud platforms.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(EXPERIENCE) Tj
+0 -14 Td
+(Senior Data Engineer, Acme Corp                     2021 - Present) Tj
+0 -14 Td
+(Data Engineer, Initech Systems                      2018 - 2021) Tj
+0 -14 Td
+(Junior Data Engineer, Globex Analytics              2016 - 2018) Tj
+0 -14 Td
+(Data Analyst Intern, Wayne Foods                    2015 - 2016) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(EDUCATION) Tj
+0 -14 Td
+(B.S. in Computer Science, Meridian State Univ.      2016) Tj
+0 -14 Td
+(Data Engineering Certificate, Online Institute      2017) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(CERTIFICATIONS) Tj
+0 -14 Td
+(AWS Certified Data Analytics - Specialty            2022) Tj
+0 -14 Td
+(Google Professional Data Engineer                   2021) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(SKILLS) Tj
+0 -14 Td
+(Python, SQL, Airflow, Spark, dbt, Snowflake, AWS, Docker) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 3 0 R >> >> /MediaBox [0 0 612 792] /Contents 4 0 R >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000183 00000 n 
+0000001358 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1484
+%%EOF

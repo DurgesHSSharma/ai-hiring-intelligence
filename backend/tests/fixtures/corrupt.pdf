@@ -1,0 +1,43 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 7 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 908 >>
+stream
+BT
+/F1 10 Tf
+72 750 Td
+(Jane Doe - Resume) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(Jane Doe) Tj
+0 -14 Td
+(Frontend Engineer) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(SUMMARY) Tj
+0 -14 Td
+(Experienced frontend engineer with a background in building respon-) Tj
+0 -14 Td
+(sive, accessible web applications using modern JavaScript frameworks.) Tj
+0 -14 Td
+() Tj
+0 -14 Td
+(EXPERIENCE) Tj
+0 -14 Td
+(Senior Frontend Engineer, Northwind Retail -- 2021 to Present) Tj
+0 -14 Td
+(  Led the redesign of the customer checkout flow, improving conver-) Tj
+0 -14 Td
+(  sion rate by fourteen percent over two quarters.) Tj
+0 -14 Td
+(  Mentored two

@@ -1,0 +1,124 @@
+{
+  "resumes": [
+    {
+      "filename": "resume_001.pdf",
+      "layout": "single_column",
+      "name": "Aaron Whitfield",
+      "email": "aaron.whitfield@example.com",
+      "phone": "14155550142",
+      "education_level": "bachelor",
+      "experience_years": 7.5,
+      "notes": "Two contiguous roles Jun2016-Aug2019 and Sep2019-Dec2022; merged span 90 months."
+    },
+    {
+      "filename": "resume_002.docx",
+      "layout": "two_column",
+      "name": "Priyanka Raghunathan",
+      "email": "priyanka.r@example.com",
+      "phone": "918045678901",
+      "education_level": "master",
+      "experience_years": 7.0,
+      "notes": "Bare-year ranges 2018-2021 and 2021-2024 overlap on 2021; merged Jan2018-Dec2024."
+    },
+    {
+      "filename": "resume_003.pdf",
+      "layout": "two_column",
+      "name": "Wei Chen",
+      "email": "wei.chen@example.com",
+      "phone": "442079460958",
+      "education_level": "bachelor",
+      "experience_years": 4.7,
+      "notes": "Numeric dates 03/2019-06/2021 and 07/2021-11/2023; contiguous, merged 56 months."
+    },
+    {
+      "filename": "resume_004.docx",
+      "layout": "single_column",
+      "name": "Maria Fernandez-Lopez",
+      "email": "m.fernandez@example.com",
+      "phone": "34612345678",
+      "education_level": "master",
+      "experience_years": 8.9,
+      "notes": "Written-out dates, 'to' separator. Jan2015-Dec2023 merged."
+    },
+    {
+      "filename": "resume_005.pdf",
+      "layout": "single_column",
+      "name": "Tobias Lindqvist",
+      "email": "t.lindqvist@example.com",
+      "phone": "468123456",
+      "education_level": "bachelor",
+      "experience_years": null,
+      "notes": "Deliberately contains no date ranges anywhere. Exercises the None path."
+    },
+    {
+      "filename": "resume_006.docx",
+      "layout": "single_column",
+      "name": "Samira Haddad",
+      "email": "samira.haddad@example.com",
+      "phone": "12125550173",
+      "education_level": null,
+      "experience_years": 4.0,
+      "notes": "No degree of any kind; certifications only. education_level is null."
+    },
+    {
+      "filename": "resume_007.pdf",
+      "layout": "single_column",
+      "name": "Nkechi Obi",
+      "email": "n.obi@example.com",
+      "phone": "23412345678",
+      "education_level": "phd",
+      "experience_years": 11.0,
+      "notes": "Name carries a 'Dr.' honorific. Education section lists three degrees; highest is PhD."
+    },
+    {
+      "filename": "resume_008.pdf",
+      "layout": "two_column",
+      "name": "Hiroshi Tanaka",
+      "email": "h.tanaka@example.com",
+      "phone": "81312345678",
+      "education_level": "bachelor",
+      "experience_years": 5.8,
+      "notes": "Genuine 30-month employment gap between Mar2018 and Sep2020; must NOT be bridged."
+    },
+    {
+      "filename": "resume_009.docx",
+      "layout": "single_column",
+      "name": "Olumide Adeyemi",
+      "email": "o.adeyemi@example.com",
+      "phone": "16465550198",
+      "education_level": "master",
+      "experience_years": 9.6,
+      "notes": "Open-ended '2017 - Present'. Value assumes evaluation around Aug 2026 and drifts ~1 month per month."
+    },
+    {
+      "filename": "resume_010.pdf",
+      "layout": "single_column",
+      "name": "Ravindran",
+      "email": "ravindran.k@example.com",
+      "phone": "919876543210",
+      "education_level": "associate",
+      "experience_years": 4.0,
+      "notes": "Single-word name, no surname. Diploma maps to associate on the ladder."
+    },
+    {
+      "filename": "resume_011.docx",
+      "layout": "two_column",
+      "name": "Chloe Marchetti",
+      "email": "chloe.m@example.com",
+      "phone": "390612345678",
+      "education_level": "high_school",
+      "experience_years": 2.9,
+      "notes": "Secondary-school diploma only. Single role Jun2019-May2022."
+    },
+    {
+      "filename": "resume_012.pdf",
+      "layout": "single_column",
+      "name": "Anders Bjornstad",
+      "email": "a.bjornstad@example.com",
+      "phone": "4722123456",
+      "education_level": "bachelor",
+      "experience_years": 11.0,
+      "notes": "Three contiguous bare-year roles 2013-2016, 2016-2020, 2020-2023; merged Jan2013-Dec2023."
+    }
+  ]
+}

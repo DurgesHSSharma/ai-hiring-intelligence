@@ -1,0 +1,36 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.1
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg2-binary==2.9.10
+python-multipart==0.0.20
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-dotenv==1.0.1
+httpx==0.28.1
+email-validator==2.3.0
+dnspython==2.8.0
+
+pandas==2.2.3
+numpy==1.26.4
+scikit-learn==1.5.2
+spacy==3.8.3
+# Not on PyPI's normal index — spaCy's language models are published as
+# direct-download wheels. pip installs a URL requirement line like any
+# other (verified: `pip install -r requirements.txt` in a clean venv).
+en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl
+sentence-transformers==3.3.1
+pdfplumber==0.11.4
+python-docx==1.1.2
+joblib==1.4.2
+
+openai==1.58.1
+anthropic==0.40.0
+
+pytest==8.3.4
+pytest-asyncio==0.25.0
+faker==33.1.0
+coverage==7.6.9

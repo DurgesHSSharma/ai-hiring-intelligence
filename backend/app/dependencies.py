@@ -1,0 +1,85 @@
+"""FastAPI dependency-injection glue: current-user resolution and shared
+query-parameter dependencies. Sits between api/ and services/ — api/ route
+signatures use the CurrentUser alias so they never need to import
+app.models directly (Rules.md 4.2: api/ must not import models).
+"""
+from typing import Annotated
+
+from fastapi import Depends, Query
+from fastapi.security import OAuth2PasswordBearer
+from jose import ExpiredSignatureError, JWTError
+from sqlalchemy.orm import Session
+
+from app.config import settings
+from app.core.enums import UserRole
+from app.core.exceptions import AuthenticationError, AuthorizationError
+from app.core.security import decode_access_token
+from app.database import get_db
+from app.models.user import User
+from app.services import auth_service
+
+# auto_error=False is deliberate: with the default True, a request with no
+# Authorization header never reaches this function at all — FastAPI raises
+# its own HTTPException(401) first, which the existing Starlette handler
+# maps to the HTTP_ERROR fallback code, not TOKEN_MISSING. auto_error=False
+# makes the scheme return None instead, so every failure path below raises
+# the correct AppError itself: TOKEN_MISSING, TOKEN_INVALID, TOKEN_EXPIRED,
+# and INVALID_CREDENTIALS are deliberately four different codes (not all
+# collapsed into one) so the frontend can tell "never logged in" apart from
+# "session expired" and react differently to each.
+oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_PREFIX}/auth/login", auto_error=False
+)
+
+
+def get_current_user(
+    token: str | None = Depends(oauth2_scheme), db: Session = Depends(get_db)
+) -> User:
+    if token is None:
+        raise AuthenticationError("Authentication required.", code="TOKEN_MISSING")
+
+    try:
+        payload = decode_access_token(token)
+    except ExpiredSignatureError:
+        raise AuthenticationError("Token has expired.", code="TOKEN_EXPIRED")
+    except JWTError:
+        raise AuthenticationError("Invalid authentication token.", code="TOKEN_INVALID")
+
+    subject = payload.get("sub")
+    try:
+        user_id = int(subject)
+    except (TypeError, ValueError):
+        raise AuthenticationError("Invalid authentication token.", code="TOKEN_INVALID")
+
+    user = auth_service.get_user_by_id(db, user_id)
+    if user is None:
+        raise AuthenticationError("User not found.", code="INVALID_CREDENTIALS")
+
+    return user
+
+
+# So api/ route signatures never need `from app.models.user import User`.
+CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def require_admin(current_user: CurrentUser) -> User:
+    """Layered on top of get_current_user, not standalone: an unauthenticated
+    request fails at the auth dependency first (401 TOKEN_MISSING/etc.), so this
+    403 only ever fires for an authenticated caller who isn't an admin
+    (PRD F1.5 — v1 role enforcement is exactly this one check, nothing else).
+    """
+    if current_user.role != UserRole.ADMIN:
+        raise AuthorizationError(
+            "Only administrators can perform this action.", code="ADMIN_REQUIRED"
+        )
+    return current_user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]
+
+
+def pagination_params(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> dict[str, int]:
+    return {"page": page, "page_size": page_size}

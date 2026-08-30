@@ -1,0 +1,305 @@
+{
+  "as_of": "2026-08",
+  "resumes": [
+    {
+      "filename": "resume_001.docx",
+      "layout": "single_column",
+      "name": "Taylor Brooks",
+      "email": "taylor.brooks@example.com",
+      "phone": "415-555-0101",
+      "education_level": "bachelor",
+      "experience_years": 7.2,
+      "notes": ""
+    },
+    {
+      "filename": "resume_002.docx",
+      "layout": "single_column",
+      "name": "Morgan Lee",
+      "email": "morgan.lee@example.com",
+      "phone": "628-555-0110",
+      "education_level": "bachelor",
+      "experience_years": 6.5,
+      "notes": ""
+    },
+    {
+      "filename": "resume_003.pdf",
+      "layout": "single_column",
+      "name": "Sam Okafor",
+      "email": "sam.okafor@example.com",
+      "phone": "212-555-0133",
+      "education_level": "master",
+      "experience_years": 7.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_004.docx",
+      "layout": "single_column",
+      "name": "Jordan Patel",
+      "email": "jordan.patel@example.com",
+      "phone": "303-555-0144",
+      "education_level": "bachelor",
+      "experience_years": 0.2,
+      "notes": ""
+    },
+    {
+      "filename": "resume_005.pdf",
+      "layout": "single_column",
+      "name": "Riley Nakamura",
+      "email": "riley.nakamura@example.com",
+      "phone": "646-555-0155",
+      "education_level": "bachelor",
+      "experience_years": 15.7,
+      "notes": "Boundary years overlap by design (2015, 2019 each appear as both an end and a start) \u2014 exercises the merge rule's overlap handling, not just gaps."
+    },
+    {
+      "filename": "resume_006.docx",
+      "layout": "single_column",
+      "name": "Casey Whitfield",
+      "email": "casey.whitfield@example.com",
+      "phone": "512-555-0166",
+      "education_level": "bachelor",
+      "experience_years": 6.0,
+      "notes": "A genuine 2017 gap (sabbatical) between roles \u2014 must not be bridged."
+    },
+    {
+      "filename": "resume_007.docx",
+      "layout": "two_column",
+      "name": "Devon Marsh",
+      "email": "devon.marsh@example.com",
+      "phone": "617-555-0177",
+      "education_level": "bachelor",
+      "experience_years": 7.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_008.pdf",
+      "layout": "two_column",
+      "name": "Harper Quinn",
+      "email": "harper.quinn@example.com",
+      "phone": "720-555-0188",
+      "education_level": "master",
+      "experience_years": 10.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_009.docx",
+      "layout": "single_column",
+      "name": "Elena Voss",
+      "email": "elena.voss@example.com",
+      "phone": "206-555-0199",
+      "education_level": "phd",
+      "experience_years": 8.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_010.docx",
+      "layout": "single_column",
+      "name": "Bobby Kilgore",
+      "email": "bobby.kilgore@example.com",
+      "phone": "303-555-0100",
+      "education_level": "associate",
+      "experience_years": 4.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_011.pdf",
+      "layout": "single_column",
+      "name": "Frankie Dubois",
+      "email": "frankie.dubois@example.com",
+      "phone": "503-555-0111",
+      "education_level": "bachelor",
+      "experience_years": null,
+      "notes": "No date ranges anywhere \u2014 must return None for experience_years, never 0.0."
+    },
+    {
+      "filename": "resume_012.docx",
+      "layout": "single_column",
+      "name": "Ngozi Adeyemi",
+      "email": "ngozi.adeyemi@example.com",
+      "phone": "470-555-0122",
+      "education_level": "bachelor",
+      "experience_years": 5.0,
+      "notes": "Heading line before the name \u2014 exercises the spaCy PERSON fallback, not the first-line heuristic."
+    },
+    {
+      "filename": "resume_013.docx",
+      "layout": "single_column",
+      "name": "Priya Subramaniam",
+      "email": "priya.subramaniam@example.com",
+      "phone": "415.555.0199",
+      "education_level": "master",
+      "experience_years": 9.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_014.pdf",
+      "layout": "single_column",
+      "name": "Oliver Hargreaves",
+      "email": "oliver.hargreaves@example.com",
+      "phone": "+44 20 7946 0958",
+      "education_level": "bachelor",
+      "experience_years": 7.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_015.docx",
+      "layout": "two_column",
+      "name": "Micah Sorensen",
+      "email": "micah.sorensen@example.com",
+      "phone": "612-555-0115",
+      "education_level": "master",
+      "experience_years": 10.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_016.docx",
+      "layout": "single_column",
+      "name": "Greer Malone",
+      "email": "greer.malone@example.com",
+      "phone": "312-555-0116",
+      "education_level": "bachelor",
+      "experience_years": 6.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_017.pdf",
+      "layout": "single_column",
+      "name": "Isla Fontaine",
+      "email": "isla.fontaine@example.com",
+      "phone": "404-555-0117",
+      "education_level": "bachelor",
+      "experience_years": 6.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_018.docx",
+      "layout": "single_column",
+      "name": "Theo Baptiste",
+      "email": "theo.baptiste@example.com",
+      "phone": "617-555-0118",
+      "education_level": "master",
+      "experience_years": 11.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_019.docx",
+      "layout": "single_column",
+      "name": "Winona Castellanos",
+      "email": "winona.castellanos@example.com",
+      "phone": "303-555-0119",
+      "education_level": "bachelor",
+      "experience_years": 17.7,
+      "notes": ""
+    },
+    {
+      "filename": "resume_020.pdf",
+      "layout": "two_column",
+      "name": "Rafael Beaumont",
+      "email": "rafael.beaumont@example.com",
+      "phone": "646-555-0120",
+      "education_level": "bachelor",
+      "experience_years": 10.7,
+      "notes": "Ground truth is the resume's actual content (2016-Present), computed the same independent way as every other fixture \u2014 an earlier draft of this label wrongly substituted a guess about how column-interleaving might break extraction for the actual ground truth, which is not the same thing. Kept as a fixture anyway because the guess itself was informative once tested: the real extractor DOES find the correct range here despite the interleaving, because the date-range regex only needs the literal date substring intact, not clean surrounding prose \u2014 unlike name extraction (see resume_008), which needs a clean first line and breaks under the same interleaving. Two-column PDF corruption does not fail uniformly across fields."
+    },
+    {
+      "filename": "resume_021.docx",
+      "layout": "single_column",
+      "name": "Yusuf Demir",
+      "email": "yusuf.demir@example.com",
+      "phone": "720-555-0121",
+      "education_level": "bachelor",
+      "experience_years": 5.4,
+      "notes": ""
+    },
+    {
+      "filename": "resume_022.docx",
+      "layout": "single_column",
+      "name": "Anaya Krishnan",
+      "email": "anaya.krishnan@example.com",
+      "phone": "971-555-0122",
+      "education_level": "bachelor",
+      "experience_years": 6.2,
+      "notes": ""
+    },
+    {
+      "filename": "resume_023.pdf",
+      "layout": "single_column",
+      "name": "Declan Fitzgerald",
+      "email": "declan.fitzgerald@example.com",
+      "phone": "617-555-0123",
+      "education_level": "bachelor",
+      "experience_years": 2.5,
+      "notes": ""
+    },
+    {
+      "filename": "resume_024.docx",
+      "layout": "single_column",
+      "name": "Bianca Torres",
+      "email": "bianca.torres@example.com",
+      "phone": null,
+      "education_level": "bachelor",
+      "experience_years": 6.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_025.docx",
+      "layout": "single_column",
+      "name": "Marcus Ferreira",
+      "email": null,
+      "phone": "786-555-0125",
+      "education_level": "bachelor",
+      "experience_years": 8.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_026.docx",
+      "layout": "two_column",
+      "name": "Odalys Reyes",
+      "email": "odalys.reyes@example.com",
+      "phone": "915-555-0126",
+      "education_level": "bachelor",
+      "experience_years": 8.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_027.pdf",
+      "layout": "single_column",
+      "name": "Emmett Sokolov",
+      "email": "emmett.sokolov@example.com",
+      "phone": "206-555-0127",
+      "education_level": "associate",
+      "experience_years": 3.0,
+      "notes": ""
+    },
+    {
+      "filename": "resume_028.docx",
+      "layout": "single_column",
+      "name": "Nadia Osei",
+      "email": "nadia.osei@example.com",
+      "phone": "240-555-0128",
+      "education_level": "bachelor",
+      "experience_years": 1.0,
+      "notes": "A single role entirely within one calendar year \u2014 the smallest realistic non-None duration, useful for catching an off-by-one in the inclusive month count."
+    },
+    {
+      "filename": "resume_029.docx",
+      "layout": "single_column",
+      "name": "Callum Ashworth",
+      "email": "callum.ashworth@example.com",
+      "phone": "313-555-0129",
+      "education_level": "bachelor",
+      "experience_years": 7.7,
+      "notes": ""
+    },
+    {
+      "filename": "resume_030.pdf",
+      "layout": "single_column",
+      "name": "Simone Delacroix",
+      "email": "simone.delacroix@example.com",
+      "phone": "504-555-0130",
+      "education_level": "master",
+      "experience_years": 12.0,
+      "notes": ""
+    }
+  ]
+}

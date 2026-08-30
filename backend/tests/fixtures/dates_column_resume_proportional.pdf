@@ -1,0 +1,100 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Length 1428 >>
+stream
+BT
+/F1 10 Tf
+1 0 0 1 60 750 Tm
+(Jordan Lee - Resume) Tj
+1 0 0 1 60 736 Tm
+() Tj
+1 0 0 1 60 722 Tm
+(Jordan Lee) Tj
+1 0 0 1 60 708 Tm
+(Data Engineer) Tj
+1 0 0 1 60 694 Tm
+() Tj
+1 0 0 1 60 680 Tm
+(SUMMARY) Tj
+1 0 0 1 60 666 Tm
+(Data engineer with six years of experience building pipelines and) Tj
+1 0 0 1 60 652 Tm
+(warehouse infrastructure on cloud platforms.) Tj
+1 0 0 1 60 638 Tm
+() Tj
+1 0 0 1 60 624 Tm
+(EXPERIENCE) Tj
+1 0 0 1 60 610 Tm
+(Senior Data Engineer, Acme Corp) Tj
+1 0 0 1 340 610 Tm
+(2021 - Present) Tj
+1 0 0 1 60 596 Tm
+(Data Engineer, Initech Systems) Tj
+1 0 0 1 340 596 Tm
+(2018 - 2021) Tj
+1 0 0 1 60 582 Tm
+(Junior Data Engineer, Globex Analytics) Tj
+1 0 0 1 340 582 Tm
+(2016 - 2018) Tj
+1 0 0 1 60 568 Tm
+(Data Analyst Intern, Wayne Foods) Tj
+1 0 0 1 340 568 Tm
+(2015 - 2016) Tj
+1 0 0 1 60 554 Tm
+() Tj
+1 0 0 1 60 540 Tm
+(EDUCATION) Tj
+1 0 0 1 60 526 Tm
+(B.S. in Computer Science, Meridian State Univ.) Tj
+1 0 0 1 340 526 Tm
+(2016) Tj
+1 0 0 1 60 512 Tm
+(Data Engineering Certificate, Online Institute) Tj
+1 0 0 1 340 512 Tm
+(2017) Tj
+1 0 0 1 60 498 Tm
+() Tj
+1 0 0 1 60 484 Tm
+(CERTIFICATIONS) Tj
+1 0 0 1 60 470 Tm
+(AWS Certified Data Analytics - Specialty) Tj
+1 0 0 1 340 470 Tm
+(2022) Tj
+1 0 0 1 60 456 Tm
+(Google Professional Data Engineer) Tj
+1 0 0 1 340 456 Tm
+(2021) Tj
+1 0 0 1 60 442 Tm
+() Tj
+1 0 0 1 60 428 Tm
+(SKILLS) Tj
+1 0 0 1 60 414 Tm
+(Python, SQL, Airflow, Spark, dbt, Snowflake, AWS, Docker) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 3 0 R >> >> /MediaBox [0 0 612 792] /Contents 4 0 R >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000185 00000 n 
+0000001664 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1790
+%%EOF

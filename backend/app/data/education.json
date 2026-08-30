@@ -1,0 +1,111 @@
+{
+  "ladder": [
+    {
+      "level": 1,
+      "name": "high_school",
+      "display_name": "High School Diploma",
+      "patterns": [
+        "high school diploma",
+        "high school degree",
+        "ged",
+        "secondary school",
+        "senior secondary"
+      ]
+    },
+    {
+      "level": 2,
+      "name": "associate",
+      "display_name": "Associate Degree",
+      "patterns": [
+        "associate degree",
+        "associate of arts",
+        "associate of science",
+        "associate of applied science",
+        "associate's degree",
+        "a.a.",
+        "a.s.",
+        "aas",
+        "diploma"
+      ]
+    },
+    {
+      "level": 3,
+      "name": "bachelor",
+      "display_name": "Bachelor's Degree",
+      "patterns": [
+        "bachelor of science",
+        "bachelor of arts",
+        "bachelor of engineering",
+        "bachelor of technology",
+        "bachelor's degree",
+        "bachelors degree",
+        "bachelor's",
+        "bachelors",
+        "b.s.",
+        "b.a.",
+        "b.e.",
+        "b.eng.",
+        "b.tech",
+        "btech",
+        "b.sc",
+        "bsc",
+        "bs in",
+        "ba in",
+        "ba",
+        "bs",
+        "bachelor of design",
+        "b.des",
+        "bachelor of fine arts",
+        "b.f.a.",
+        "bachelor of business administration",
+        "b.b.a.",
+        "bachelor of laws",
+        "llb",
+        "undergraduate degree"
+      ]
+    },
+    {
+      "level": 4,
+      "name": "master",
+      "display_name": "Master's Degree",
+      "patterns": [
+        "master of science",
+        "master of arts",
+        "master of engineering",
+        "master of technology",
+        "master of business administration",
+        "master's degree",
+        "masters degree",
+        "master's",
+        "masters",
+        "m.s.",
+        "m.a.",
+        "m.e.",
+        "m.tech",
+        "mtech",
+        "m.sc",
+        "msc",
+        "ms in",
+        "ma in",
+        "mba",
+        "master of design",
+        "m.des",
+        "master of fine arts",
+        "m.f.a.",
+        "postgraduate degree"
+      ]
+    },
+    {
+      "level": 5,
+      "name": "phd",
+      "display_name": "PhD",
+      "patterns": [
+        "phd",
+        "ph.d.",
+        "doctorate",
+        "doctoral degree",
+        "doctor of philosophy"
+      ]
+    }
+  ]
+}
