@@ -301,6 +301,10 @@ Groq.
 - Feature importances; SHAP only if it does not push inference past 500 ms.
 - Artefacts saved together: model, preprocessor, `feature_names.json`, `metrics.json` with a version string.
 - `performance_rating` has only 2 distinct values in this dataset. Check its feature importance is not misleading before surfacing it as a contributing factor.
+- D61: Tenure-related features must be interpreted cautiously because
+  tenure is confounded with employee age and career stage; feature
+  importance must not be presented as an independent causal driver
+  without acknowledging this confounding.
 
 **Acceptance**
 

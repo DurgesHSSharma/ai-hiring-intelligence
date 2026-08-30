@@ -47,3 +47,13 @@ Full column-by-column EDA, including the six PRD F9.2 attrition-rate breakdowns 
 | `data/raw/` | Original attrition dataset as downloaded | No — gitignored |
 | `data/processed/` | Cleaned/derived attrition data | No — gitignored |
 | `data/samples/` | Committed sample resumes for development | Yes |
+## Obtaining the data
+
+1. Sign in to Kaggle (an account is required to download the dataset).
+2. Download the dataset from the Kaggle dataset page listed above.
+3. Place the downloaded file at:
+   `data/raw/WA_Fn-UseC_-HR-Employee-Attrition.csv`
+4. Expected file size: 227,977 bytes.
+5. SHA256:
+   `A5C31E38BD7FAFC9BC333884EB181B06B41B8E5E488E8F7CCB27199FB3BE7659`
+6. `data/raw/` is gitignored, so the dataset file is not tracked in this repository.
