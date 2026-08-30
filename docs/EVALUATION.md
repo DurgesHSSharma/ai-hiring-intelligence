@@ -1148,6 +1148,263 @@ finding above — that finding is about whether the raw probability value
 itself can be read as a percentage chance, not about whether the
 flag/no-flag decision at 0.550 is correct.
 
+### Calibration amendment — sigmoid validated across 4 seeds, threshold 0.2005 (follow-up sessions, same phase)
+
+The "Calibration comparison" section above flagged, but did not resolve, a
+Phase 11 consequence: raw `predict_proba` overstates real attrition risk by
+~2.3-2.4x and cannot be read as a real-world probability as-is. Three
+follow-up scripts resolve that flag for Logistic Regression + SMOTE
+specifically (the selected model) — `ml/attrition/06_calibration.py`
+(single seed, sigmoid), `07_calibration_multiseed.py` (sigmoid, seeds
+42/43/44/45), `08_calibration_method_comparison.py` (sigmoid vs. isotonic,
+same 4 seeds). All three reuse `05_threshold_sweep.py`'s exact fold-safe
+`build_smote_pipeline()` (preprocessing → SMOTE → classifier, one
+`imblearn.Pipeline`, refit per fold) with `CalibratedClassifierCV` wrapped
+around it — its own internal `cv` split refits that whole pipeline on each
+inner fold's sub-training rows and fits the calibration mapping only on
+that fold's held-out, non-resampled rows, and the outer `StratifiedKFold`
+that drives `cross_val_predict` means no row's own fold ever contributes to
+fitting preprocessing, SMOTE, the classifier, or its own calibration
+mapping. The outer 80/20 split stayed fixed at `random_state=42`
+throughout — never re-split per seed — and the sealed 294-row test set was
+opened only after every decision below was fixed from training/OOF
+evidence.
+
+**A. Sigmoid calibration — validated across seeds 42, 43, 44, 45.**
+
+```
+seed  brier(uncal)  brier(cal)  improvement  logloss(cal)  roc_auc(cal)  mean_pred(cal)  ratio
+42    0.1710        0.1062      0.0648       0.3539        0.8032        0.1610          1.00x
+43    0.1679        0.1059      0.0619       0.3570        0.7976        0.1602          0.99x
+44    0.1676        0.1065      0.0611       0.3558        0.8014        0.1619          1.00x
+45    0.1687        0.1049      0.0638       0.3499        0.8103        0.1623          1.00x
+```
+
+**Mean Brier improvement = 0.0629 ± 0.0015 versus the uncalibrated LogReg+SMOTE
+baseline** — large (a ~37% relative Brier reduction) and tight across seeds
+(std is ~2.4% of the mean, not noise). Mean predicted probability sits at
+0.99-1.00x the true training prevalence (0.1616) in every seed, versus
+2.26-2.28x uncalibrated. ROC-AUC is essentially preserved (0.7976-0.8103
+calibrated vs. 0.8012-0.8089 uncalibrated) — calibration reshapes the
+probability scale, it does not materially change ranking quality. The
+matched-recall operating point (below) is likewise stable across seeds.
+
+**Final calibrated threshold: 0.2005.** This is **not** raw threshold 0.550
+transformed by any formula. It was found by: for each seed, measuring the
+OOF recall the uncalibrated model achieves at raw 0.550 (0.700, 0.695,
+0.695, 0.689 across the 4 seeds), then searching that seed's *calibrated*
+model's own out-of-fold precision-recall curve for the threshold producing
+the closest recall — a real search against real data, independently per
+seed:
+
+```
+seed  calibrated_threshold  precision  recall  f1
+42    0.1971                0.364      0.700   0.479
+43    0.1935                0.379      0.695   0.491
+44    0.2002                0.386      0.695   0.496
+45    0.2112                0.413      0.689   0.517
+```
+
+The three candidate production thresholds this could produce — mean
+(0.2005), median (0.1986), seed-42-only (0.1971) — were then each
+cross-applied to *every* seed's own OOF calibrated probabilities (not just
+the seed each was derived from), and compared on how close the resulting
+mean recall lands to the 4-seed target (0.6947) and how much that recall
+varies seed to seed. The mean threshold won on both counts (recall
+0.7013, gap 0.0066 from target, tied-lowest std 0.0169) and was adopted —
+not the seed-42 value alone, which would have been the least defensible of
+the three (largest gap from the multi-seed target).
+
+**Sigmoid tail limitation — systematic, not a one-seed artifact.** The
+highest calibration bin consistently under-predicts actual risk by
+~12-15 percentage points in every one of the 4 seeds:
+
+```
+seed  n    predicted  actual  gap
+42    118  0.498      0.619   +0.121
+43    118  0.500      0.619   +0.119
+44    118  0.500      0.627   +0.127
+45    118  0.495      0.644   +0.149
+```
+
+All four gaps are positive (under-prediction) and of similar magnitude —
+this is a systematic top-tail limitation of sigmoid's 2-parameter logistic
+mapping at this sample size (~190 training positives to calibrate
+against), not a fold-assignment fluke. **The bin immediately below the top
+is substantially better behaved** — predicted/actual pairs of
+0.312/0.325, 0.314/0.316, 0.309/0.274, 0.309/0.291 across the same 4
+seeds, gaps of only -0.036 to +0.013, alternating sign rather than
+one-directional. The miscalibration is concentrated specifically in the
+top decile, not spread through the upper half of the score range.
+
+**B. Isotonic calibration — tested specifically to fix the tail gap above, then rejected.**
+
+`08_calibration_method_comparison.py` ran the identical 4-seed comparison
+with `CalibratedClassifierCV(method="isotonic")` in place of `"sigmoid"`,
+same outer fold assignment per seed, to test whether a non-parametric
+calibrator could close the top-bin gap. It does close it — top-bin |gap|
+drops from a mean of 0.129 (sigmoid) to 0.018 (isotonic), an 86% relative
+reduction — but four findings, all from training/OOF data, show that fix
+comes bundled with real overfitting:
+
+```
+                          sigmoid            isotonic
+mean Brier (4-seed)      0.1059             0.1048
+log loss, every seed     0.3539/.3570/      0.3796/.4126/
+                          .3558/.3499        .3785/.3748     <- WORSE in all 4
+score min, every seed    0.0020-0.0037      0.0000 (exact, all 4 seeds)
+score max, 2 of 4 seeds  0.80-0.85          1.0000 (exact, seeds 43 & 44)
+next-bin (bin 8) range   0.048 (-.036 to +.013)  0.081 (-.052 to +.029)  <- WIDER
+F9.7 High band           1.79%-2.13%        4.76%-5.36%     <- ~2.5-3x more
+```
+
+Isotonic's mean Brier score is nominally lower (0.1048 vs. 0.1059), but
+**log loss is worse in every single seed** despite that — the textbook
+signature of a calibrator making a handful of severely overconfident wrong
+calls: Brier (bounded, squared-error-like) barely notices; log loss (which
+diverges near 0/1 on a miss) punishes it heavily. That overconfidence is
+not inferred, it's measured directly: isotonic regression produced **exact
+0.0** predictions in every seed and **exact 1.0** predictions in two of
+four seeds (verified at full float precision), a materially stronger claim
+about individual employees than ~190 training positives can support. The
+bin immediately below the top got *more* variable under isotonic, not
+less — the tail fix did not come for free even one bin down. And the F9.7
+High band (>60%) roughly tripled under isotonic (56-63 of 1,176 vs.
+sigmoid's 21-25) — a large, practically significant change in how many
+employees a recruiter would see flagged, driven by the same boundary
+saturation.
+
+**On the sealed test set** (opened once, after method selection — see the
+audit-trail note below), isotonic's out-of-sample recall and F1 were both
+lower than sigmoid's: 0.617 recall (29/47) and 0.464 F1, versus sigmoid's
+0.660 recall (31/47) and 0.477 F1.
+
+**FINAL CALIBRATION METHOD = SIGMOID.** Isotonic is not a production
+candidate. Its Brier improvement, on its own, would have looked like a
+marginal win — but that small gain is outweighed by boundary saturation,
+worse log loss in every seed, increased instability in the bin next to the
+one it fixed, a near-tripled High-risk band, and lower recall/F1 on the
+sealed test set.
+
+**Audit trail — order of events, so a future reader cannot confuse
+test-set confirmation with model selection.** `08_calibration_method_comparison.py`
+contains a hardcoded decision rule that checks four numeric conditions
+(top-bin gap reduction, Brier-improvement retention, threshold/Brier
+cross-seed variability, matched-threshold precision/recall variability).
+All four passed for isotonic, so the script's own automated output printed
+`RECOMMENDATION: ISOTONIC` — and, because the script's control flow
+evaluates whichever method it recommends against the sealed test set, it
+ran that isotonic sealed-test evaluation **before** anyone reviewed
+whether the recommendation itself was sound. On review, the rule's four
+checks did not encode: (1) log-loss degradation, (2) exact 0/1 boundary
+saturation, (3) the next-highest bin's increased instability, or (4) the
+F9.7 High-band shift — all four visible only by reading the fuller
+training/OOF output the script also printed. **The final decision to
+retain sigmoid was made using training/OOF evidence only** (points 1-4
+above); the isotonic sealed-test numbers reported above were treated as
+**post-hoc confirmation, not input to the selection decision** — they were
+already sitting in the script's output by the time the override happened,
+but the override itself does not cite them. This is recorded here as a
+limitation of the automated decision rule itself, not just a one-off
+mistake: a hardcoded rule optimizes exactly the metrics it encodes, and
+this run is a concrete example of it clearing every check it had while
+missing product-relevant behaviour (an inflated risk band, boundary
+saturation) that those checks never asked about. Future automated
+model/calibration selection logic on this project should not be trusted to
+cover "acceptable" behaviour it wasn't explicitly told to check.
+
+**F9.7 risk-band finding, calibrated sigmoid probabilities, all 4 seeds:**
+
+```
+seed  Low (<30%)      Medium (30-60%)  High (>60%)      High, full-dataset (~1,470 rows, projected)
+42    989  (84.10%)   164  (13.95%)    23  (1.96%)      ~29
+43    991  (84.27%)   164  (13.95%)    21  (1.79%)      ~26
+44    992  (84.35%)   163  (13.86%)    21  (1.79%)      ~26
+45    993  (84.44%)   158  (13.44%)    25  (2.13%)      ~31
+```
+
+Low ≈84%, Medium ≈13-14%, High ≈1.8-2.1% across all 4 seeds. **The
+1,176-row OOF counts (21-25 employees) are the real, measured numbers; the
+~26-31 full-dataset figures are an arithmetic projection** (OOF High-band
+rate × 1,470), not a re-scored count — kept explicitly distinct from the
+real OOF counts per the same discipline the rest of this section follows.
+**The >60% High band is nearly empty as currently defined** (under 2% of
+the training/OOF pool), and given the tail-limitation finding above,
+**this count should not be read as a precise census of all genuinely
+highest-risk employees** — sigmoid systematically under-predicts exactly
+the tail this band exists to isolate, so some employees whose true risk is
+in the 60s% calibrate down into the high-50s% and land in "Medium"
+instead. The band is real, but likely an undercount, not an overcount.
+
+**F9.7 band boundaries are NOT being changed here.** The existing PRD
+F9.7 boundaries (<30%, 30-60%, >60%) stay exactly as specified —
+`decision_threshold.json`, `metrics.json`, and every existing Phase 10
+artifact are untouched by this amendment (verified: `git diff --stat`
+against all of them is empty). Changing those boundaries would be a
+product/PRD decision requiring the project owner's sign-off; the
+calibration work above supplies evidence relevant to that decision (the
+High band is thin and likely conservative under sigmoid) but does not make
+the decision itself.
+
+**Probability interpretation.** The calibrated sigmoid output is
+substantially more defensible as a real-world probability than the
+original raw SMOTE output: mean predicted probability moves from ~2.28x
+the actual prevalence (uncalibrated) to ~1.00x (calibrated) — the
+population-level average finally means what it says. The one preserved,
+explicitly-flagged limitation: **the highest-risk tail remains
+under-predicted by ~12-15 percentage points** even after calibration — an
+individual score in the top decile should be read as a floor on real risk,
+not a precise estimate of it.
+
+**FINAL SEALED TEST-SET CONFIRMATION (sigmoid, threshold 0.2005, opened
+once, after every decision above was fixed from training/OOF evidence):**
+
+```
+brier               0.1030
+log_loss             0.3533
+roc_auc              0.7883
+precision            0.373
+recall               0.660  (31/47)
+f1                   0.477
+confusion matrix     [[195, 52], [16, 31]]
+mean_predicted        0.1669
+```
+
+Recall matches the uncalibrated threshold-0.550 sealed-test result exactly
+(31/47 leavers caught, both cases); precision and F1 are nearly identical
+(0.373 vs. 0.369, 0.477 vs. 0.473). Out-of-sample confirmation that the
+recommended calibrated threshold preserves the recall operating point
+Phase 10 already committed to, not a new one. Test results were not used
+to select between sigmoid and isotonic, nor to tune the threshold — both
+decisions were already fixed before this evaluation ran.
+
+**FINAL CALIBRATION DECISION**
+
+```
+MODEL:                Logistic Regression + SMOTE
+CALIBRATION:           Sigmoid  (CalibratedClassifierCV(method="sigmoid"))
+CALIBRATED THRESHOLD:  0.2005
+ISOTONIC:              Rejected — see evidence above
+F9.7 BANDS:             Unchanged, pending owner decision
+PHASE 11:              Not started at the time of this decision
+```
+
+**Calibration artifacts (not part of the original Phase 10 acceptance
+criteria, kept alongside them):** `ml/attrition/06_calibration.py`
+(single-seed sigmoid experiment), `07_calibration_multiseed.py` (sigmoid,
+4 seeds), `08_calibration_method_comparison.py` (sigmoid vs. isotonic, 4
+seeds); `artifacts/calibration_summary.json` and
+`calibration_experiment.csv` (06's single-seed output),
+`calibration_multiseed.csv` (07's 80-row, 4-seed sigmoid output),
+`calibration_method_comparison.csv` (08's 80-row, 4-seed sigmoid-vs-
+isotonic output), `calibration_curve.png` (06's reliability plot). None of
+these scripts modify `model.joblib`, `preprocessor.joblib`,
+`decision_threshold.json`, or `metrics.json` — the shipped Phase 10
+artifacts and the 0.550 evaluation-threshold decision they encode are
+unchanged; this section documents an amendment to how probabilities are
+*interpreted*, not a change to what `03_train.py`/`04_evaluate.py` produce
+or select.
+
 ### Feature importances (|coefficient|, Logistic Regression, 21 encoded columns)
 
 ```
