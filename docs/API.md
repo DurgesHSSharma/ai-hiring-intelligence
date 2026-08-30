@@ -552,16 +552,161 @@ Read-only — never calls the LLM. Returns the stored set for this candidate/job
 
 ---
 
+## Attrition
+
+The model is loaded once, at application startup (not per request — PRD F9.6, Rules.md 4.6). If the artifact set is missing or inconsistent, every route below returns 503 `ATTRITION_MODEL_MISSING`; every other endpoint in the API stays healthy.
+
+Three concepts every prediction response keeps separate, never conflated (Memory.md decisions 67/69/70):
+
+1. `probability` — the sigmoid-calibrated probability itself (never the raw SMOTE classifier's own, uncalibrated output, which overstates real attrition risk by roughly 2.3–2.4x).
+2. `flagged` / `decision_threshold` — the binary operating cutoff (`0.2005`, the sigmoid-calibrated threshold — a different number from, and not a transform of, the `0.550` cutoff `ml/attrition/04_evaluate.py` uses for its own offline evaluation).
+3. `risk_level` / `risk_level_status` — the PRD F9.7 Low/Medium/High display band. This is **provisional**: `risk_level` is always `null` and `risk_level_status` always says why. F9.7's fixed `<30%/30-60%/>60%` boundaries have not been approved by the project owner against calibrated-probability evidence — the calibrated model's High band is thin (~2% of employees) and the calibration analysis found the top decile is itself under-predicted, meaning that band is more likely an undercount than an overcount. See `docs/EVALUATION.md`'s Phase 10 calibration amendment. The band logic exists (`attrition_service.py`'s `_compute_risk_band`, gated by `RISK_BAND_RESOLVED = False`) and activates with a one-line change once the project owner decides — no other file changes when that happens.
+
+Gender, marital status, and "Over18" (Phase 9's excluded protected attributes) are not accepted fields on any attrition request — supplying one is rejected outright (`422`, `extra="forbid"`, the same convention used for `UserCreate`), not silently dropped.
+
+### `POST /attrition/predict` — auth required
+
+Body: the 17 canonical business features (all required; each reported by name if missing — see below), plus an optional `employee_id`. When `employee_id` is supplied, it must reference an existing `employees` row (`404 EMPLOYEE_NOT_FOUND` otherwise) and the prediction is persisted against it; when omitted, this is an ad-hoc "enter a hypothetical profile" prediction and nothing is persisted.
+
+```json
+{
+  "age": 35,
+  "distance_from_home": 5,
+  "monthly_income": 5000.0,
+  "percent_salary_hike": 15.0,
+  "total_working_years": 10,
+  "years_at_company": 5,
+  "years_since_last_promotion": 1,
+  "years_with_curr_manager": 3,
+  "job_level": 2,
+  "job_satisfaction": 3,
+  "environment_satisfaction": 3,
+  "relationship_satisfaction": 3,
+  "performance_rating": 3,
+  "stock_option_level": 1,
+  "department": "Sales",
+  "business_travel": "Travel_Rarely",
+  "overtime": true,
+  "employee_id": null
+}
+```
+
+Response (real values from a live call against the shipped model):
+
+```json
+{
+  "employee_id": null,
+  "prediction_id": null,
+  "probability": 0.2461,
+  "flagged": true,
+  "decision_threshold": 0.2005,
+  "calibration_method": "sigmoid",
+  "model_family": "Logistic Regression",
+  "imbalance_strategy": "SMOTE",
+  "model_version": "1",
+  "top_factors": [
+    { "feature": "overtime", "contribution": 0.83 },
+    { "feature": "business_travel_Travel_Rarely", "contribution": -0.31 }
+  ],
+  "risk_level": null,
+  "risk_level_status": "unresolved: PRD F9.7's Low/Medium/High boundaries (<30%/30-60%/>60%) have not been approved by the project owner against calibrated-probability evidence - the calibrated model's High band is thin (~2% of employees, likely an undercount given the top-decile calibration limitation). See docs/EVALUATION.md's Phase 10 calibration amendment and GET /attrition/model-info.",
+  "calibration_known_limitation": "The highest calibration bin under-predicts actual risk by roughly 12-15 percentage points (multi-seed confirmed, Memory.md decision 70) - the calibrated probability for the highest-risk employees is a conservative floor, not an exact figure."
+}
+```
+
+`top_factors` is a per-prediction, signed decomposition (coefficient × this employee's own encoded feature value) from the uncalibrated model's coefficients — the same coefficient-magnitude convention `ml/attrition/metrics.json`'s global `feature_importances` already uses, evaluated per-row instead of globally. It is not SHAP (deferred, Memory.md decision 63) and is never used to compute `probability`.
+
+A missing required feature returns 400, naming exactly which field(s):
+
+```json
+{
+  "error": {
+    "code": "INVALID_FEATURE_SET",
+    "message": "Missing required attrition feature(s): monthly_income.",
+    "details": { "missing_features": ["monthly_income"] }
+  }
+}
+```
+
+### `POST /attrition/predict/batch` — auth required
+
+Body: `{ "records": [ <same shape as POST /attrition/predict, minus the top-level employee_id nesting — it's a field on each record> ] }`, 1–500 records. One partial failure never destroys the batch (Rules.md 5.1) — each record is predicted and, if `employee_id` is set, persisted independently; a record's own `INVALID_FEATURE_SET` or `EMPLOYEE_NOT_FOUND` marks only that record `failed` and does not affect the others. A missing model artifact, by contrast, fails the whole call (503 `ATTRITION_MODEL_MISSING`) — checked once, up front.
+
+```json
+{
+  "total": 3,
+  "succeeded": 2,
+  "failed": 1,
+  "results": [
+    { "index": 0, "employee_id": 1, "status": "predicted", "prediction": { "...": "AttritionPredictResponse shape above" } },
+    { "index": 1, "employee_id": null, "status": "failed", "prediction": null, "code": "INVALID_FEATURE_SET", "reason": "Missing required attrition feature(s): department." },
+    { "index": 2, "employee_id": null, "status": "predicted", "prediction": { "...": "..." } }
+  ]
+}
+```
+
+### `GET /attrition/employees` — auth required
+
+Paginated (`?page=&page_size=`, `Page[EmployeeOut]` shape — see "System" above for the envelope). Each employee carries its own 17 business features plus `latest_prediction` (the most recent persisted `AttritionPrediction` for that employee, by `prediction_date`, or `null` if none exists yet):
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "age": 35,
+      "department": "Sales",
+      "...": "the remaining 15 business features",
+      "latest_prediction": {
+        "probability": 0.2461,
+        "risk_level": null,
+        "model_version": "1",
+        "prediction_date": "2026-08-30T22:03:00Z"
+      }
+    }
+  ],
+  "total": 1470,
+  "page": 1,
+  "page_size": 20,
+  "pages": 74
+}
+```
+
+### `GET /attrition/model-info` — auth required
+
+```json
+{
+  "model_family": "Logistic Regression",
+  "imbalance_strategy": "SMOTE",
+  "calibration_method": "sigmoid",
+  "calibrated_decision_threshold": 0.2005,
+  "model_version": "1",
+  "feature_names": ["age", "distance_from_home", "...", "overtime"],
+  "raw_evaluation_threshold": 0.55,
+  "raw_evaluation_metrics": { "accuracy": 0.765, "precision": 0.369, "recall": 0.660, "f1": 0.473, "roc_auc": 0.784 },
+  "calibrated_evaluation_metrics": { "brier_score": 0.103, "recall": 0.6596, "f1": 0.4769, "...": "sealed test set, threshold 0.2005" },
+  "calibration_brier_improvement_mean": 0.0629,
+  "calibration_brier_improvement_std": 0.0015,
+  "calibration_known_limitation": "The highest calibration bin under-predicts actual risk by roughly 12-15 percentage points...",
+  "risk_band_status": "unresolved",
+  "risk_band_note": "unresolved: PRD F9.7's Low/Medium/High boundaries..."
+}
+```
+
+`raw_evaluation_metrics` is `ml/attrition/04_evaluate.py`'s sealed-test result at the uncalibrated `0.550` cutoff (Phase 10). `calibrated_evaluation_metrics` is the calibrated model's own sealed-test result at `0.2005` (`ml/attrition/09_finalize_calibrated_model.py`). Both are shown, clearly separated, rather than picking one.
+
+---
+
 ## Status codes in use
 
 | Code | Meaning |
 |---|---|
 | 200 | Successful read, update, or delete |
 | 201 | Resource created |
-| 400 | A `ValidationError`-raised business rule (e.g. `NO_FILES_PROVIDED`, `BATCH_LIMIT_EXCEEDED`, `JOB_HAS_NO_SKILLS`) |
+| 400 | A `ValidationError`-raised business rule (e.g. `NO_FILES_PROVIDED`, `BATCH_LIMIT_EXCEEDED`, `JOB_HAS_NO_SKILLS`, `INVALID_FEATURE_SET`) |
 | 401 | Missing or invalid token |
 | 403 | Authenticated but not permitted (admin-only actions) |
-| 404 | Resource does not exist |
+| 404 | Resource does not exist (including `EMPLOYEE_NOT_FOUND`) |
 | 409 | Conflict (duplicate email) |
 | 422 | Pydantic validation failure, including an unknown/forbidden field or a business-rule violation raised as a validation error |
 | 500 | Unhandled server error (`INTERNAL_ERROR`, with a correlation id) |

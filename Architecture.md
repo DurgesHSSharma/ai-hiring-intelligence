@@ -751,17 +751,38 @@ OpenAI instead.
 
 ### 7.4 Attrition prediction
 
+Two distinct artifact pairs are loaded, for two distinct purposes (Phase 11
+— see Memory.md decision 70's calibration amendment and the completion
+step in `ml/attrition/09_finalize_calibrated_model.py`):
+
+- `calibrated_model.joblib` — a `CalibratedClassifierCV` (sigmoid) whose
+  wrapped estimator already embeds preprocessing, SMOTE, and the classifier
+  as one pipeline. Serves the calibrated probability. Takes the raw,
+  unencoded 17-column feature row directly — never composed with a
+  separate `preprocessor.transform()` call.
+- `model.joblib` + `preprocessor.joblib` — the original uncalibrated
+  Phase 10 artifacts, kept loaded for one purpose only: per-prediction
+  `top_factors` (coefficient × encoded-value decomposition), matching the
+  same naming convention already used in `metrics.json`'s global
+  `feature_importances`. Never used to compute the served probability.
+
 ```text
-Startup: lifespan loads attrition_model.joblib + preprocessor.joblib + feature_names.json
-         missing artefact → attrition endpoints return 503, everything else runs
+Startup: lifespan loads calibrated_model.joblib (probability) +
+         model.joblib + preprocessor.joblib (explanations) +
+         feature_names.json + decision_threshold.json
+         missing artefact → attrition endpoints return 503 ATTRITION_MODEL_MISSING,
+         everything else runs
 
 POST /attrition/predict
    │
-   ├─ validate feature dict against schema
-   ├─ features.py orders the dict into the exact training feature order
-   ├─ preprocessor.transform → model.predict_proba
-   ├─ risk band from probability
-   ├─ top factors from feature importances (or SHAP if enabled)
+   ├─ validate feature dict against schema (INVALID_FEATURE_SET on any missing key)
+   ├─ features.py orders the dict into the exact training feature order (feature_names.json)
+   ├─ calibrated_model.predict_proba → the served, calibrated probability
+   ├─ decision_threshold.json's "calibrated" threshold (0.2005) → flagged bool
+   ├─ preprocessor.transform + model.coef_ → top_factors (per-prediction, signed)
+   ├─ risk_level left null — PRD F9.7's bands are not yet owner-approved
+   │     against calibrated evidence (Memory.md decision 70); provisional
+   │     status returned alongside the null value, never silently finalized
    └─ persist prediction if employee_id supplied, return result
 ```
 
@@ -809,7 +830,7 @@ OPENAI_BASE_URL=https://api.groq.com/openai/v1
 ANTHROPIC_API_KEY=
 LLM_TIMEOUT_SECONDS=30
 
-ATTRITION_MODEL_PATH=../ml/attrition/artifacts/attrition_model.joblib
+ATTRITION_MODEL_PATH=../ml/attrition/artifacts/calibrated_model.joblib
 ```
 
 `config.py` validates at import: `SCORING_METHOD` in the allowed set, `SECRET_KEY` non-empty outside development, the four scoring weights summing to 1.0, and `LLM_PROVIDER` being `openai` or `anthropic` with `LLM_MODEL` set whenever `LLM_PROVIDER=openai` (there is no safe built-in default model id, since one endpoint's valid ids don't carry over to another). Startup fails loudly rather than running misconfigured. `SEMANTIC_SKILL_MATCHING=true` is checked too, but only logs a startup warning — the feature it gates stays inert regardless until Phase 13 validates a real threshold (Phases.md), so there is nothing for it to fail on.

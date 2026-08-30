@@ -273,7 +273,7 @@ NO_FILES_PROVIDED          CANDIDATE_NOT_APPLIED
 SCORING_FAILED             EMBEDDING_MODEL_UNAVAILABLE
 LLM_UNAVAILABLE            LLM_INVALID_OUTPUT          LLM_TIMEOUT
 INTERVIEW_QUESTIONS_NOT_FOUND    INSUFFICIENT_GROUNDED_QUESTIONS
-ATTRITION_MODEL_MISSING    INVALID_FEATURE_SET
+ATTRITION_MODEL_MISSING    INVALID_FEATURE_SET    EMPLOYEE_NOT_FOUND
 INTERNAL_ERROR
 
 REQUEST_VALIDATION_ERROR   VALIDATION_ERROR
@@ -287,6 +287,8 @@ NOT_FOUND                  METHOD_NOT_ALLOWED          HTTP_ERROR
 `CANDIDATE_NOT_APPLIED` was added in Phase 6 for `POST /jobs/{job_id}/score` — a per-candidate skip reason (in the 200 batch response, not a top-level error) when an explicitly-requested `candidate_id` has no `Application` to the job being scored.
 
 `INTERVIEW_QUESTIONS_NOT_FOUND` was added in Phase 8 for `GET /candidates/{id}/interview-questions` (404, `NotFoundError`) — no questions have been generated yet for that candidate/job pair. Distinct from `LLM_UNAVAILABLE`/`LLM_INVALID_OUTPUT`/`LLM_TIMEOUT`, which are provider-call failures on `POST`, not "nothing stored yet" on `GET`.
+
+`EMPLOYEE_NOT_FOUND` was added in Phase 11 (`NotFoundError`, 404) for `POST /attrition/predict`'s optional `employee_id` (persistence linkage — the id must reference a real `employees` row or the request is rejected before any prediction runs) — the `employees` table is a genuinely new resource type with no prior code covering "referenced row does not exist," distinct from every existing `*_NOT_FOUND` code.
 
 `INSUFFICIENT_GROUNDED_QUESTIONS` was added in the Phase 8 grounding-filter fix (`LLMError`, 503) for `POST /candidates/{id}/interview-questions` — every generated question was parseable, valid JSON, and passed schema validation, but none of them referenced anything in the candidate's own extracted data. Deliberately distinct from `LLM_INVALID_OUTPUT`, which stays reserved for the model's raw output failing strict JSON parse or Pydantic validation even after one repair attempt: the two are different failures (a garbled response vs. a well-formed one the grounding filter rejected) and conflating them as one code hid, in a real run against real candidates, that the filter — not the model — was at fault. Between 1 and 4 grounded questions is no longer a failure at all; the response returns 200 with the shorter list and `partial: true` (`schemas/interview.py`), so this code fires only on a genuine zero.
 

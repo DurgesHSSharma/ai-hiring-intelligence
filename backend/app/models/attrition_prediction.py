@@ -16,7 +16,11 @@ class AttritionPrediction(Base):
         ForeignKey("employees.id", ondelete="CASCADE"), index=True, nullable=False
     )
     probability: Mapped[float] = mapped_column(Float, nullable=False)
-    risk_level: Mapped[RiskLevel] = mapped_column(db_enum(RiskLevel), nullable=False)
+    # Nullable: PRD F9.7's Low/Medium/High boundaries are not yet approved
+    # against calibrated-probability evidence (Memory.md decision 70) -
+    # attrition_service.py leaves this unset rather than silently finalizing
+    # a band value. See migration 77d9064ae0ac.
+    risk_level: Mapped[RiskLevel | None] = mapped_column(db_enum(RiskLevel), nullable=True)
     top_factors: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     model_version: Mapped[str] = mapped_column(String(40), nullable=False)
     prediction_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

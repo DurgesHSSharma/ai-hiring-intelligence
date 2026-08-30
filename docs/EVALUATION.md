@@ -1444,6 +1444,26 @@ satisfies the "feature importances" build item and the
 `performance_rating`/D61 checks it exists to support. Left for Phase 11
 if per-prediction local explanations turn out to need it.
 
+### Phase 11 — the calibrated model persisted for serving, numbers reproduced exactly
+
+The calibration amendment above existed only as console output from analysis
+scripts (`06`/`07`/`08_calibration_*.py`, each self-labelled "ANALYSIS ONLY,
+not production") — no `CalibratedClassifierCV` had ever been `joblib.dump()`ed,
+and `decision_threshold.json` still read `0.550`, not `0.2005`. Before Phase
+11's serving code could load "the finalized calibrated artifact," that
+artifact had to actually exist. `ml/attrition/09_finalize_calibrated_model.py`
+re-runs `07_calibration_multiseed.py`'s exact functions (imported, not
+duplicated) and **asserts the recomputed 4-seed recommendation matches the
+recorded one before persisting anything** — it does, exactly: per-seed
+thresholds 0.1971/0.1935/0.2002/0.2112, mean 0.2005, sealed-test recall 0.660
+(31/47), f1 0.477. Saves `ml/attrition/artifacts/calibrated_model.joblib`
+(gitignored, same pattern as `model.joblib`) and adds a `"calibrated"`
+sub-object to `decision_threshold.json` (threshold 0.2005, sigmoid, sealed-test
+metrics, the 4-seed Brier-improvement mean/std — 0.0629 ± 0.0015, matching the
+prose above exactly — and the known top-decile limitation). The existing
+top-level `threshold: 0.550` field, `model.joblib`, `preprocessor.joblib`, and
+`metrics.json` are untouched. See Memory.md decision 71.
+
 ### Artifacts
 
 `ml/attrition/artifacts/`: `model.joblib` (fitted
@@ -1461,7 +1481,10 @@ read by `04_evaluate.py`), `threshold_sweep.csv` (round 1's frozen
 counts plus Brier/mean-predicted/prevalence summary for both Logistic
 Regression variants), `metrics.json` (version `"1"`, model type, strategy,
 decision threshold, test metrics, confusion matrix, full
-feature-importance ranking).
+feature-importance ranking), and, from Phase 11's finalization step,
+`calibrated_model.joblib` (the fitted, sigmoid-calibrated
+`CalibratedClassifierCV` — the artifact actually served) plus
+`decision_threshold.json`'s new `"calibrated"` sub-object (see above).
 
 ---
 
