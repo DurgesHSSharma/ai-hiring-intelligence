@@ -2,10 +2,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import CurrentUser, pagination_params
+from app.dependencies import CurrentUser, compare_candidate_ids, pagination_params
 from app.schemas.common import Page
 from app.schemas.score import (
     CandidateScoreResponse,
+    CompareCandidatesResponse,
     RankingEntry,
     ScoreJobRequest,
     ScoreJobResponse,
@@ -51,3 +52,13 @@ def get_skill_gap(
     candidate_id: int, job_id: int, current_user: CurrentUser, db: Session = Depends(get_db)
 ) -> SkillGapResponse:
     return scoring_service.get_skill_gap(db, candidate_id, job_id)
+
+
+@router.get("/jobs/{job_id}/compare", response_model=CompareCandidatesResponse)
+def compare_candidates(
+    job_id: int,
+    current_user: CurrentUser,
+    db: Session = Depends(get_db),
+    candidate_ids: list[int] = Depends(compare_candidate_ids),
+) -> CompareCandidatesResponse:
+    return scoring_service.compare_candidates(db, job_id, candidate_ids)

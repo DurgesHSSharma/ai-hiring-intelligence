@@ -274,6 +274,7 @@ SCORING_FAILED             EMBEDDING_MODEL_UNAVAILABLE
 LLM_UNAVAILABLE            LLM_INVALID_OUTPUT          LLM_TIMEOUT
 INTERVIEW_QUESTIONS_NOT_FOUND    INSUFFICIENT_GROUNDED_QUESTIONS
 ATTRITION_MODEL_MISSING    INVALID_FEATURE_SET    EMPLOYEE_NOT_FOUND
+INVALID_CANDIDATE_COUNT
 INTERNAL_ERROR
 
 REQUEST_VALIDATION_ERROR   VALIDATION_ERROR
@@ -291,6 +292,8 @@ NOT_FOUND                  METHOD_NOT_ALLOWED          HTTP_ERROR
 `EMPLOYEE_NOT_FOUND` was added in Phase 11 (`NotFoundError`, 404) for `POST /attrition/predict`'s optional `employee_id` (persistence linkage — the id must reference a real `employees` row or the request is rejected before any prediction runs) — the `employees` table is a genuinely new resource type with no prior code covering "referenced row does not exist," distinct from every existing `*_NOT_FOUND` code.
 
 `INSUFFICIENT_GROUNDED_QUESTIONS` was added in the Phase 8 grounding-filter fix (`LLMError`, 503) for `POST /candidates/{id}/interview-questions` — every generated question was parseable, valid JSON, and passed schema validation, but none of them referenced anything in the candidate's own extracted data. Deliberately distinct from `LLM_INVALID_OUTPUT`, which stays reserved for the model's raw output failing strict JSON parse or Pydantic validation even after one repair attempt: the two are different failures (a garbled response vs. a well-formed one the grounding filter rejected) and conflating them as one code hid, in a real run against real candidates, that the filter — not the model — was at fault. Between 1 and 4 grounded questions is no longer a failure at all; the response returns 200 with the shorter list and `partial: true` (`schemas/interview.py`), so this code fires only on a genuine zero.
+
+`INVALID_CANDIDATE_COUNT` was added in Phase 12 (`ValidationError`, 400) for `GET /jobs/{id}/compare?candidate_ids=` — the same bounds-violation shape `BATCH_LIMIT_EXCEEDED` already covers for resume uploads, applied here to a 2–4 candidate count instead of a file count. Fires for a malformed `candidate_ids` value too (unparseable as a comma-separated integer list), since that is still "the count/shape of what was requested is not usable," not a distinct failure worth its own code.
 
 The second group are framework-level codes, not resource-specific ones: `REQUEST_VALIDATION_ERROR` is FastAPI's automatic Pydantic body/query validation (422); `VALIDATION_ERROR` is the default code on the base `ValidationError` `AppError` subclass before a service overrides it with something specific; `NOT_FOUND` / `METHOD_NOT_ALLOWED` / `HTTP_ERROR` come from Starlette's own routing exceptions (unmatched route, wrong method, anything else) rather than from application code.
 

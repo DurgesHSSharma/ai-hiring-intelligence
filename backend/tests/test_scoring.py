@@ -964,3 +964,187 @@ def test_scoring_50_candidates_completes_under_60_seconds(client, db_session, au
     assert response.status_code == 200
     assert response.json()["scored"] == 50
     assert elapsed < 60.0
+
+
+# --- endpoint: GET /jobs/{id}/compare (Phase 12, F11) ---------------------------
+
+
+def _make_full_score(db_session, candidate: Candidate, job: Job, **overrides) -> CandidateScore:
+    defaults = dict(
+        resume_match_score=50.0,
+        skill_match_score=50.0,
+        experience_score=50.0,
+        education_score=100.0,
+        final_fit_score=50.0,
+        matched_skills=[{"skill": "Python", "source": "dictionary", "matched_via": None}],
+        missing_skills=[],
+        scoring_method="tfidf",
+    )
+    defaults.update(overrides)
+    score = CandidateScore(candidate_id=candidate.id, job_id=job.id, **defaults)
+    db_session.add(score)
+    db_session.commit()
+    return score
+
+
+def test_compare_two_candidates(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    a = _make_candidate(db_session, email="cmp-a@example.com")
+    b = _make_candidate(db_session, email="cmp-b@example.com")
+    _apply(db_session, a, job)
+    _apply(db_session, b, job)
+    _make_full_score(db_session, a, job, final_fit_score=60.0)
+    _make_full_score(db_session, b, job, final_fit_score=80.0)
+
+    response = client.get(
+        f"/api/v1/jobs/{job.id}/compare", headers=auth_headers, params={"candidate_ids": f"{a.id},{b.id}"}
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["job_id"] == job.id
+    assert body["candidate_ids"] == [a.id, b.id]
+    assert len(body["candidates"]) == 2
+    fit_row = next(row for row in body["matrix"] if row["metric"] == "final_fit_score")
+    assert fit_row["best_candidate_id"] == b.id
+
+
+def test_compare_three_candidates(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    candidates = [_make_candidate(db_session, email=f"cmp3-{i}@example.com") for i in range(3)]
+    for i, candidate in enumerate(candidates):
+        _apply(db_session, candidate, job)
+        _make_full_score(db_session, candidate, job, final_fit_score=50.0 + i * 10)
+
+    ids = ",".join(str(c.id) for c in candidates)
+    response = client.get(f"/api/v1/jobs/{job.id}/compare", headers=auth_headers, params={"candidate_ids": ids})
+    assert response.status_code == 200
+    assert len(response.json()["candidates"]) == 3
+
+
+def test_compare_four_candidates(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    candidates = [_make_candidate(db_session, email=f"cmp4-{i}@example.com") for i in range(4)]
+    for i, candidate in enumerate(candidates):
+        _apply(db_session, candidate, job)
+        _make_full_score(db_session, candidate, job, final_fit_score=40.0 + i * 5)
+
+    ids = ",".join(str(c.id) for c in candidates)
+    response = client.get(f"/api/v1/jobs/{job.id}/compare", headers=auth_headers, params={"candidate_ids": ids})
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["candidates"]) == 4
+    assert all(len(row["values"]) == 4 for row in body["matrix"])
+
+
+def test_compare_rejects_fewer_than_two(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    a = _make_candidate(db_session, email="cmp-solo@example.com")
+    _apply(db_session, a, job)
+    _make_full_score(db_session, a, job)
+
+    response = client.get(
+        f"/api/v1/jobs/{job.id}/compare", headers=auth_headers, params={"candidate_ids": str(a.id)}
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_CANDIDATE_COUNT"
+
+
+def test_compare_rejects_more_than_four(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    candidates = [_make_candidate(db_session, email=f"cmp5-{i}@example.com") for i in range(5)]
+    for candidate in candidates:
+        _apply(db_session, candidate, job)
+        _make_full_score(db_session, candidate, job)
+
+    ids = ",".join(str(c.id) for c in candidates)
+    response = client.get(f"/api/v1/jobs/{job.id}/compare", headers=auth_headers, params={"candidate_ids": ids})
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_CANDIDATE_COUNT"
+
+
+def test_compare_candidate_not_belonging_to_job_returns_404(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    other_job = _make_job(db_session, title="Other Job")
+    in_job = _make_candidate(db_session, email="in-job@example.com")
+    outsider = _make_candidate(db_session, email="outsider@example.com")
+    _apply(db_session, in_job, job)
+    _make_full_score(db_session, in_job, job)
+    _apply(db_session, outsider, other_job)
+    _make_full_score(db_session, outsider, other_job)
+
+    response = client.get(
+        f"/api/v1/jobs/{job.id}/compare",
+        headers=auth_headers,
+        params={"candidate_ids": f"{in_job.id},{outsider.id}"},
+    )
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "SCORE_NOT_FOUND"
+    assert response.json()["error"]["details"]["missing_candidate_ids"] == [outsider.id]
+
+
+def test_compare_best_value_marking_respects_metric_direction(client, db_session, auth_headers):
+    """final_fit_score is higher-is-better; missing_skills_count is
+    lower-is-better — proves best-per-row marking isn't a hardcoded
+    "highest wins" (Phases.md Phase 12 acceptance).
+    """
+    job = _make_job(db_session)
+    fewer_missing = _make_candidate(db_session, email="fewer-missing@example.com")
+    more_missing = _make_candidate(db_session, email="more-missing@example.com")
+    _apply(db_session, fewer_missing, job)
+    _apply(db_session, more_missing, job)
+    _make_full_score(db_session, fewer_missing, job, final_fit_score=50.0, missing_skills=[])
+    _make_full_score(
+        db_session, more_missing, job, final_fit_score=90.0, missing_skills=["SQL", "FastAPI"]
+    )
+
+    response = client.get(
+        f"/api/v1/jobs/{job.id}/compare",
+        headers=auth_headers,
+        params={"candidate_ids": f"{fewer_missing.id},{more_missing.id}"},
+    )
+    body = response.json()
+    fit_row = next(row for row in body["matrix"] if row["metric"] == "final_fit_score")
+    missing_row = next(row for row in body["matrix"] if row["metric"] == "missing_skills_count")
+
+    assert fit_row["direction"] == "higher_is_better"
+    assert fit_row["best_candidate_id"] == more_missing.id
+    assert missing_row["direction"] == "lower_is_better"
+    assert missing_row["best_candidate_id"] == fewer_missing.id
+
+
+def test_compare_deterministic_and_ties_broken_by_lowest_id(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    a = _make_candidate(db_session, email="tie-a@example.com")
+    b = _make_candidate(db_session, email="tie-b@example.com")
+    _apply(db_session, a, job)
+    _apply(db_session, b, job)
+    _make_full_score(db_session, a, job, final_fit_score=70.0)
+    _make_full_score(db_session, b, job, final_fit_score=70.0)
+
+    params = {"candidate_ids": f"{a.id},{b.id}"}
+    first = client.get(f"/api/v1/jobs/{job.id}/compare", headers=auth_headers, params=params).json()
+    second = client.get(f"/api/v1/jobs/{job.id}/compare", headers=auth_headers, params=params).json()
+    assert first == second
+    fit_row = next(row for row in first["matrix"] if row["metric"] == "final_fit_score")
+    assert fit_row["best_candidate_id"] == min(a.id, b.id)
+
+
+def test_compare_missing_job_returns_404(client, auth_headers):
+    response = client.get("/api/v1/jobs/999999/compare", headers=auth_headers, params={"candidate_ids": "1,2"})
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "JOB_NOT_FOUND"
+
+
+def test_compare_without_token_returns_401(client, db_session):
+    job = _make_job(db_session)
+    response = client.get(f"/api/v1/jobs/{job.id}/compare", params={"candidate_ids": "1,2"})
+    assert response.status_code == 401
+
+
+def test_compare_malformed_candidate_ids_returns_400(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    response = client.get(
+        f"/api/v1/jobs/{job.id}/compare", headers=auth_headers, params={"candidate_ids": "abc,def"}
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "INVALID_CANDIDATE_COUNT"

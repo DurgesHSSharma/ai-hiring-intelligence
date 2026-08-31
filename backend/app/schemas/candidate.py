@@ -53,6 +53,21 @@ class CandidateDetailResponse(CandidateResponse):
     skills: GroupedSkills
 
 
+class CandidateListItem(CandidateResponse):
+    """`GET /candidates`'s item shape (Phases.md Phase 12, Architecture.md
+    6.2's `min_score`/`sort_by=fit_score` query params) — adds the fit
+    score actually used to filter/sort this listing, visible rather than
+    an implicit fact a caller would have to reverse-engineer from the
+    query. `job_id`-filtered listing -> that job's score. Unfiltered
+    listing -> the candidate's best (highest) score across every job
+    they've been scored for, since a global candidate list has no single
+    job to score against. `None` when the candidate has no score at all
+    (or none for the filtered job) yet — never a fabricated zero.
+    """
+
+    fit_score: float | None = None
+
+
 class ApplicationStatusUpdate(BaseModel):
     status: ApplicationStatus
 

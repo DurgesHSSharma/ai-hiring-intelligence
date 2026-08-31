@@ -1,6 +1,6 @@
 # API Reference
 
-Generated summary of the actual backend contract. Updated whenever the contract changes (Rules.md §8) — most recently for Phase 6 (scoring and rankings).
+Generated summary of the actual backend contract. Updated whenever the contract changes (Rules.md §8) — most recently for Phase 12 (analytics, comparison, candidate filtering, CSV export).
 
 Base path: `/api/v1`. All responses are JSON. All routes except `/health`, `/auth/register`, and `/auth/login` require `Authorization: Bearer <token>`.
 
@@ -250,9 +250,26 @@ All routes require auth. No role restriction (F1.5 limits role enforcement to jo
 
 ### `GET /candidates` — auth required
 
-Query parameters: `page`, `page_size`. No search/filter/sort yet — that is Phase 12 (PRD F12).
+Query parameters (Phase 12, PRD F12 — all executed in SQL, never a Python post-filter):
 
-Response — **200**, `Page[CandidateResponse]`:
+```text
+job_id, search, min_score, max_score, skills (repeatable),
+min_experience, education_level, status,
+sort_by (fit_score|experience|created_at|name), sort_order (asc|desc),
+page, page_size
+```
+
+- `job_id` restricts to candidates with an `Application` to that job.
+- `search` matches candidate name, email, or a skill name substring (case-insensitive `OR`).
+- `min_score`/`max_score` filter on `final_fit_score` — the specific job's score when `job_id` is given, otherwise each candidate's own best (highest) score across every job they've been scored for.
+- `skills` is repeatable and combines with `AND`: a candidate must have every listed skill, not any one of them.
+- `min_experience` excludes a candidate with unknown (`null`) `experience_years` rather than treating unknown as passing.
+- `education_level` is an exact match against the ladder position, not a minimum.
+- `status` filters on `Application.status` — scoped to `job_id`'s application when both are given, otherwise "has at least one application in this status."
+- Every filter combines with every other as SQL `AND` — e.g. `min_score=80&skills=Python&min_experience=2` returns only candidates satisfying all three.
+- Sorting always adds `candidates.id ASC` as a secondary key, so ties resolve identically on every call (stable, deterministic). A `null` value on the sort column (e.g. `sort_by=fit_score` for an unscored candidate) always sorts last, in both directions.
+
+Response — **200**, `Page[CandidateListItem]` (`CandidateResponse` plus `fit_score`):
 
 ```json
 {
@@ -269,7 +286,8 @@ Response — **200**, `Page[CandidateResponse]`:
       "certifications": [],
       "parse_status": "parsed",
       "parse_error": null,
-      "created_at": "2026-08-26T18:15:24"
+      "created_at": "2026-08-26T18:15:24",
+      "fit_score": 84.8
     }
   ],
   "total": 1,
@@ -481,6 +499,45 @@ With `SEMANTIC_SKILL_MATCHING=true`, a required skill with no exact match can be
   "percentage": 83.3
 }
 ```
+
+### `GET /jobs/{id}/compare?candidate_ids=` — auth required (Phase 12, F11)
+
+`candidate_ids` is one comma-joined query value (`?candidate_ids=12,17,33`), not a repeatable parameter — 2 to 4 ids. Every id must have a `CandidateScore` row for this specific job (i.e. have been scored for it); an id that doesn't returns `SCORE_NOT_FOUND` naming exactly which ones are missing, not a partial matrix.
+
+Response is a per-metric matrix, not a per-candidate list, so `best_candidate_id` can be marked once per row rather than the caller re-deriving it: `direction` names which way "best" points for that specific metric (`higher_is_better` for every `*_score` field and `matched_skills_count`; `lower_is_better` for `missing_skills_count` — the marking is never a hardcoded "highest wins"). A tie is broken by the lowest `candidate_id`, so the response is identical across repeated calls with the same input. Full matched/missing skill lists (not just counts) are on each entry in `candidates`, for F11.2's "matched skills, missing skills" fields.
+
+```json
+{
+  "job_id": 4,
+  "candidate_ids": [12, 17, 33],
+  "candidates": [
+    {
+      "candidate_id": 12,
+      "candidate_name": "Grace Hopper",
+      "matched_skills": [{ "skill": "Python", "source": "dictionary", "matched_via": null }],
+      "missing_skills": ["FastAPI"]
+    }
+  ],
+  "matrix": [
+    {
+      "metric": "final_fit_score",
+      "label": "Fit Score",
+      "direction": "higher_is_better",
+      "values": { "12": 84.8, "17": 76.2, "33": 91.0 },
+      "best_candidate_id": 33
+    },
+    {
+      "metric": "missing_skills_count",
+      "label": "Missing Skills",
+      "direction": "lower_is_better",
+      "values": { "12": 1, "17": 2, "33": 0 },
+      "best_candidate_id": 33
+    }
+  ]
+}
+```
+
+`INVALID_CANDIDATE_COUNT` (400) covers both an out-of-[2,4]-bounds count and a malformed `candidate_ids` value (non-integer parts) — either way, nothing usable was requested.
 
 ---
 
@@ -709,13 +766,97 @@ Paginated (`?page=&page_size=`, `Page[EmployeeOut]` shape — see "System" above
 
 ---
 
+## Analytics (Phase 12, PRD F10)
+
+All four routes require auth and accept the same two filters: `?job_id=` and `?from=&to=` (inclusive date range, `YYYY-MM-DD`). `from` after `to` is rejected with **400**. Every returned number is a SQL `GROUP BY`/`COUNT`/`AVG` result — never a full table fetched into Python and aggregated there (Phases.md Phase 12 acceptance) — and every response echoes the filters it was actually computed under in a `filters` object, so a caller never has to guess which `job_id`/date range a given set of numbers reflects.
+
+Measured against 500 seeded candidates / 150 seeded employees on a live server (not `TestClient` in-process — see `Memory.md`): all four endpoints responded in 12–19 ms, well under the 1.5 s target.
+
+### `GET /analytics/overview` — auth required
+
+F10.1 — current `applications.status` distribution matching the filters (a snapshot of where every application sits today; `applications` has no status-history table, so this is not a cumulative "ever reached this stage" funnel):
+
+```json
+{
+  "filters": { "job_id": 4, "date_from": null, "date_to": null },
+  "funnel": { "total": 137, "new": 40, "shortlisted": 35, "interviewed": 30, "selected": 20, "rejected": 12 }
+}
+```
+
+### `GET /analytics/skills` — auth required
+
+F10.2 — most common candidate skills (from `candidate_skills`) and most frequently missing skills across the pipeline (from `candidate_scores.missing_skills`, a JSON array column — unnested in SQL via SQLite's `json_each`/PostgreSQL's `json_array_elements_text`, dialect-branched the same way `database.py` already branches on the SQLite foreign-key pragma). Top 10 of each, ordered by count descending then name ascending for a deterministic tie-break:
+
+```json
+{
+  "filters": { "job_id": 4, "date_from": null, "date_to": null },
+  "top_candidate_skills": [{ "skill_name": "Python", "count": 118 }, { "skill_name": "SQL", "count": 96 }],
+  "top_missing_skills": [{ "skill_name": "Kubernetes", "count": 41 }, { "skill_name": "FastAPI", "count": 29 }]
+}
+```
+
+### `GET /analytics/scores` — auth required
+
+F10.3 — average fit score per job and a 10-bucket (0–10, 10–20, ..., 90–100) score distribution histogram, both computed by the database (a SQL `CASE`/integer-cast bucket expression, not a Python bucketing loop). `overall_average_fit_score` is `null`, not `0.0`, when there is no data yet — same "unknown is not zero" convention as `CandidateScoreResponse`:
+
+```json
+{
+  "filters": { "job_id": null, "date_from": null, "date_to": null },
+  "overall_average_fit_score": 68.4,
+  "average_by_job": [
+    { "job_id": 4, "job_title": "Machine Learning Engineer", "average_fit_score": 71.2, "candidate_count": 137 }
+  ],
+  "distribution": [
+    { "range_start": 0, "range_end": 10, "count": 0 },
+    { "range_start": 60, "range_end": 70, "count": 41 },
+    { "range_start": 90, "range_end": 100, "count": 12 }
+  ]
+}
+```
+
+### `GET /analytics/attrition` — auth required
+
+F10.4 — count by risk tier and average probability by department, aggregated directly from the persisted `attrition_predictions.risk_level`/`probability` columns (Phases.md Phase 12: never re-invoke `predictor.py` per employee just to total up already-computed tiers — F9.7's tiers are frozen cutoffs, not a live computation). Only each employee's own latest prediction (within the date range, if given) counts toward every number here.
+
+`job_id` is accepted, for contract consistency with the other three analytics endpoints, but has no effect: employees carry no relationship to jobs anywhere in the schema (Architecture.md 5.1 — attrition is a wholly separate subgraph from jobs/candidates/applications). `job_id_filter_applied` says explicitly whether one was supplied, rather than silently ignoring it. This is a documented interpretation flagged for the project owner's review, not a silent reinterpretation of the contract — see `Memory.md`.
+
+```json
+{
+  "filters": { "job_id": null, "date_from": null, "date_to": null },
+  "job_id_filter_applied": false,
+  "total_employees_with_prediction": 150,
+  "by_risk_level": [
+    { "risk_level": "low", "count": 37 },
+    { "risk_level": "medium", "count": 18 },
+    { "risk_level": "high", "count": 95 }
+  ],
+  "by_department": [
+    { "department": "Sales", "average_probability": 0.4619, "employee_count": 57 }
+  ]
+}
+```
+
+---
+
+## Export (Phase 12, PRD F13)
+
+### `GET /jobs/{id}/export/csv` — auth required
+
+Accepts the exact same filter/sort query parameters as `GET /candidates` (`search`, `min_score`, `max_score`, `skills`, `min_experience`, `education_level`, `status`, `sort_by`, `sort_order`) minus `job_id` (fixed by the path) and `page`/`page_size` — an export is the complete filtered/sorted result set, never paginated. Both routes call the identical query builder (`candidate_service.build_candidate_query`), so the two can never silently drift apart: the same filters produce the same candidate set in the same order on both routes.
+
+Returns `text/csv` with a `Content-Disposition: attachment` header. Columns: `candidate_id, name, email, fit_score, resume_match_score, skill_match_score, experience_score, education_score, missing_skills, status` (`missing_skills` is `; `-joined). An empty result is a header-only CSV (one line), not an error.
+
+PDF shortlist (F13.3) is optional, lowest-priority scope and was **not built this phase** — deferred, not silently dropped; see `Memory.md`.
+
+---
+
 ## Status codes in use
 
 | Code | Meaning |
 |---|---|
 | 200 | Successful read, update, or delete |
 | 201 | Resource created |
-| 400 | A `ValidationError`-raised business rule (e.g. `NO_FILES_PROVIDED`, `BATCH_LIMIT_EXCEEDED`, `JOB_HAS_NO_SKILLS`, `INVALID_FEATURE_SET`) |
+| 400 | A `ValidationError`-raised business rule (e.g. `NO_FILES_PROVIDED`, `BATCH_LIMIT_EXCEEDED`, `JOB_HAS_NO_SKILLS`, `INVALID_FEATURE_SET`, `INVALID_CANDIDATE_COUNT`) |
 | 401 | Missing or invalid token |
 | 403 | Authenticated but not permitted (admin-only actions) |
 | 404 | Resource does not exist (including `EMPLOYEE_NOT_FOUND`) |

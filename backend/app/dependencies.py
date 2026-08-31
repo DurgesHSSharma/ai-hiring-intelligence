@@ -3,6 +3,7 @@ query-parameter dependencies. Sits between api/ and services/ — api/ route
 signatures use the CurrentUser alias so they never need to import
 app.models directly (Rules.md 4.2: api/ must not import models).
 """
+from datetime import date
 from typing import Annotated
 
 from fastapi import Depends, Query
@@ -12,11 +13,14 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.enums import UserRole
-from app.core.exceptions import AuthenticationError, AuthorizationError
+from app.core.exceptions import AuthenticationError, AuthorizationError, ValidationError
 from app.core.security import decode_access_token
 from app.database import get_db
 from app.models.user import User
 from app.services import auth_service
+
+MIN_COMPARE_CANDIDATES = 2
+MAX_COMPARE_CANDIDATES = 4
 
 # auto_error=False is deliberate: with the default True, a request with no
 # Authorization header never reaches this function at all — FastAPI raises
@@ -83,3 +87,55 @@ def pagination_params(
     page_size: int = Query(default=20, ge=1, le=100),
 ) -> dict[str, int]:
     return {"page": page, "page_size": page_size}
+
+
+def analytics_filters(
+    job_id: int | None = Query(default=None),
+    date_from: date | None = Query(default=None, alias="from"),
+    date_to: date | None = Query(default=None, alias="to"),
+) -> dict[str, object]:
+    """Shared `?job_id=&from=&to=` filter set for every `/analytics/*`
+    endpoint (Architecture.md 6.2). Validated once, here, rather than
+    separately in each of the four analytics_service functions.
+    """
+    if date_from is not None and date_to is not None and date_from > date_to:
+        raise ValidationError(
+            "'from' must not be after 'to'.",
+            details={"from": str(date_from), "to": str(date_to)},
+        )
+    return {"job_id": job_id, "date_from": date_from, "date_to": date_to}
+
+
+def compare_candidate_ids(
+    candidate_ids: str = Query(
+        ..., description="Comma-separated candidate ids, 2-4, e.g. '12,17,33'."
+    ),
+) -> list[int]:
+    """`GET /jobs/{id}/compare?candidate_ids=1,2,3` (Architecture.md 6.2) —
+    a single comma-joined query value, not FastAPI's repeatable-param
+    convention (contrast `/candidates?skills=`), so it needs its own parse
+    step rather than a plain `list[int]` type annotation. Malformed values
+    and an out-of-[2,4]-bounds count are both reported as
+    INVALID_CANDIDATE_COUNT (Rules.md 5.3): either way, what was requested
+    isn't a usable candidate set, and there's no meaningful difference to a
+    caller between "typed something that isn't a number" and "asked to
+    compare 1 candidate."
+    """
+    raw_parts = [part.strip() for part in candidate_ids.split(",") if part.strip()]
+    try:
+        parsed = [int(part) for part in raw_parts]
+    except ValueError:
+        raise ValidationError(
+            "candidate_ids must be a comma-separated list of integers.",
+            code="INVALID_CANDIDATE_COUNT",
+            details={"candidate_ids": candidate_ids},
+        )
+
+    if not (MIN_COMPARE_CANDIDATES <= len(parsed) <= MAX_COMPARE_CANDIDATES):
+        raise ValidationError(
+            f"candidate_ids must list between {MIN_COMPARE_CANDIDATES} and "
+            f"{MAX_COMPARE_CANDIDATES} candidates, got {len(parsed)}.",
+            code="INVALID_CANDIDATE_COUNT",
+            details={"provided_count": len(parsed), "min": MIN_COMPARE_CANDIDATES, "max": MAX_COMPARE_CANDIDATES},
+        )
+    return parsed

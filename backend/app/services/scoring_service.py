@@ -8,7 +8,7 @@ from typing import Callable
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import settings
-from app.core.enums import ParseStatus, ScoreBand, ScoringMethod
+from app.core.enums import ParseStatus, ScoreBand, ScoringMethod, SkillSource
 from app.core.exceptions import ModelUnavailableError, NotFoundError, ValidationError
 from app.ml.extraction.field_extractor import extract_education
 from app.ml.ranking.base import Ranker
@@ -23,9 +23,13 @@ from app.models.job import Job
 from app.schemas.common import Page
 from app.schemas.score import (
     CandidateScoreResponse,
+    CompareCandidatesResponse,
+    ComparisonCandidateDetail,
+    ComparisonMetricRow,
     RankingEntry,
     ScoreJobResponse,
     ScoreJobResultItem,
+    SkillGapMatchOut,
     SkillGapResponse,
 )
 
@@ -475,3 +479,106 @@ def get_rankings(db: Session, job_id: int, *, page: int, page_size: int) -> Page
             )
         )
     return Page.create(items=items, total=total, page=page, page_size=page_size)
+
+
+# F11.2's comparison matrix, one row per metric. `direction` is what keeps
+# F11.3's "leading value marked" honest per row rather than one hardcoded
+# "highest wins" rule (Phases.md Phase 12): every *_score field is a 0-100
+# match/fit measure where higher is unambiguously better, matched_skills
+# is the same (more matched requirements is better), but missing_skills is
+# the one row in this matrix where fewer is the better outcome.
+_METRIC_DEFS: tuple[tuple[str, str, str], ...] = (
+    ("final_fit_score", "Fit Score", "higher_is_better"),
+    ("resume_match_score", "Resume Match", "higher_is_better"),
+    ("skill_match_score", "Skill Match", "higher_is_better"),
+    ("experience_score", "Experience", "higher_is_better"),
+    ("education_score", "Education", "higher_is_better"),
+    ("matched_skills_count", "Matched Skills", "higher_is_better"),
+    ("missing_skills_count", "Missing Skills", "lower_is_better"),
+)
+
+
+def _metric_value(score: CandidateScore, metric: str) -> float | int | None:
+    if metric == "matched_skills_count":
+        return len(score.matched_skills)
+    if metric == "missing_skills_count":
+        return len(score.missing_skills)
+    return getattr(score, metric)
+
+
+def _best_candidate_id(values: dict[int, float | int | None], direction: str) -> int | None:
+    known = {candidate_id: value for candidate_id, value in values.items() if value is not None}
+    if not known:
+        return None
+    best_value = max(known.values()) if direction == "higher_is_better" else min(known.values())
+    # Deterministic tie-break: lowest candidate_id among those tied for
+    # best, the same secondary-key convention get_rankings() already uses
+    # (CandidateScore.candidate_id.asc()) — required by Phases.md Phase 12's
+    # "deterministic response" acceptance criterion.
+    return min(candidate_id for candidate_id, value in known.items() if value == best_value)
+
+
+def compare_candidates(db: Session, job_id: int, candidate_ids: list[int]) -> CompareCandidatesResponse:
+    """`GET /jobs/{id}/compare?candidate_ids=` (Architecture.md 6.2, F11).
+    `candidate_ids` is already validated to 2-4 well-formed integers by
+    dependencies.compare_candidate_ids before this is ever called.
+    """
+    _get_job_or_404(db, job_id)
+
+    scores = (
+        db.query(CandidateScore)
+        .filter(CandidateScore.job_id == job_id, CandidateScore.candidate_id.in_(candidate_ids))
+        .all()
+    )
+    scores_by_id = {score.candidate_id: score for score in scores}
+    missing = [candidate_id for candidate_id in candidate_ids if candidate_id not in scores_by_id]
+    if missing:
+        # Covers both a candidate that doesn't belong to this job (no
+        # Application, so never scored for it) and one that applied but
+        # hasn't been scored yet — either way, there's nothing to compare,
+        # and SCORE_NOT_FOUND is the existing code for exactly that shape
+        # (see _get_score_or_404 above).
+        raise NotFoundError(
+            "One or more candidates have no score for this job.",
+            code="SCORE_NOT_FOUND",
+            details={"job_id": job_id, "missing_candidate_ids": missing},
+        )
+
+    candidates_by_id = {
+        candidate.id: candidate
+        for candidate in db.query(Candidate).filter(Candidate.id.in_(candidate_ids)).all()
+    }
+
+    matrix = [
+        ComparisonMetricRow(
+            metric=metric,
+            label=label,
+            direction=direction,
+            values=(values := {cid: _metric_value(scores_by_id[cid], metric) for cid in candidate_ids}),
+            best_candidate_id=_best_candidate_id(values, direction),
+        )
+        for metric, label, direction in _METRIC_DEFS
+    ]
+
+    candidates_detail = [
+        ComparisonCandidateDetail(
+            candidate_id=candidate_id,
+            candidate_name=(
+                candidates_by_id[candidate_id].name if candidate_id in candidates_by_id else None
+            ),
+            matched_skills=[
+                SkillGapMatchOut(
+                    skill=match["skill"],
+                    source=SkillSource(match["source"]),
+                    matched_via=match.get("matched_via"),
+                )
+                for match in scores_by_id[candidate_id].matched_skills
+            ],
+            missing_skills=scores_by_id[candidate_id].missing_skills,
+        )
+        for candidate_id in candidate_ids
+    ]
+
+    return CompareCandidatesResponse(
+        job_id=job_id, candidate_ids=candidate_ids, candidates=candidates_detail, matrix=matrix
+    )

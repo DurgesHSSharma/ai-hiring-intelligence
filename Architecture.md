@@ -582,6 +582,8 @@ sort_by (fit_score|experience|created_at|name), sort_order (asc|desc),
 page, page_size
 ```
 
+`min_score`/`max_score`/`sort_by=fit_score` need a specific score to compare, but `job_id` is optional and a candidate can be scored against several jobs — resolved (Phase 12) as: `job_id` given -> that job's score; `job_id` omitted -> the candidate's own best (highest) `final_fit_score` across every job they've been scored for. `skills` combines with `AND` across repeated values (every listed skill required, not any one), matching F12.3. `min_experience` excludes a candidate with unknown `experience_years` rather than treating unknown as passing (the same convention `scoring_service.py`'s `experience_score` already applies). `education_level` is an exact ladder-position match, not a minimum — unlike the `min_`-prefixed filters, nothing implies a threshold here.
+
 **Scoring**
 
 | Method | Path | Purpose |
@@ -648,7 +650,7 @@ Prediction response:
 | GET | `/analytics/scores` | Average fit score, distribution buckets |
 | GET | `/analytics/attrition` | Risk band counts, average risk by department |
 
-All accept `?job_id=` and `?from=&to=`.
+All accept `?job_id=` and `?from=&to=`. **`/analytics/attrition` is the one exception**, discovered during Phase 12 implementation: `employees` carries no relationship to `jobs`/`candidates`/`applications` anywhere in §5.1's entity graph, so `job_id` has nothing to filter on there. Accepted for contract consistency (dropping it would be its own inconsistency) but documented as a no-op — the response's `job_id_filter_applied` field says explicitly whether one was supplied, rather than silently ignoring it. Flagged to the project owner rather than silently resolved (Rules.md §1.8); see Memory.md.
 
 **Export**
 

@@ -72,3 +72,38 @@ class SkillGapResponse(BaseModel):
     missing: list[str]
     additional: list[str]
     percentage: float
+
+
+class ComparisonCandidateDetail(BaseModel):
+    candidate_id: int
+    candidate_name: str | None
+    matched_skills: list[SkillGapMatchOut]
+    missing_skills: list[str]
+
+
+class ComparisonMetricRow(BaseModel):
+    """One row of the F11.2 comparison matrix. `direction` names which way
+    "best" points for this specific metric (F11.3) — never assumed to be
+    "highest wins" uniformly: `missing_skills_count` is lower_is_better,
+    everything else here is higher_is_better. `values` is keyed by
+    candidate_id so the frontend can align a row against whichever
+    candidate columns it's rendering. `best_candidate_id` is None only
+    when every candidate's value for this metric is null (e.g.
+    experience_score when none of the compared candidates have a known
+    experience_years); a tie is broken by the lowest candidate_id, the
+    same deterministic secondary-key convention scoring_service.get_rankings
+    already uses.
+    """
+
+    metric: str
+    label: str
+    direction: Literal["higher_is_better", "lower_is_better"]
+    values: dict[int, float | int | None]
+    best_candidate_id: int | None
+
+
+class CompareCandidatesResponse(BaseModel):
+    job_id: int
+    candidate_ids: list[int]
+    candidates: list[ComparisonCandidateDetail]
+    matrix: list[ComparisonMetricRow]

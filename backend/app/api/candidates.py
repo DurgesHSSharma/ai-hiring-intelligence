@@ -1,12 +1,19 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
+from app.core.enums import ApplicationStatus
 from app.database import get_db
 from app.dependencies import CurrentUser, pagination_params
-from app.schemas.candidate import ApplicationResponse, ApplicationStatusUpdate, CandidateDetailResponse, CandidateResponse
+from app.schemas.candidate import (
+    ApplicationResponse,
+    ApplicationStatusUpdate,
+    CandidateDetailResponse,
+    CandidateListItem,
+)
 from app.schemas.common import DeletedResponse, Page
 from app.services import candidate_service
+from app.services.candidate_service import SortBy, SortOrder
 
 # Two resources (candidates, applications) share this module: Architecture.md 3's
 # folder tree has no api/applications.py, and groups PATCH /applications/{id} under
@@ -14,14 +21,36 @@ from app.services import candidate_service
 router = APIRouter(tags=["candidates"])
 
 
-@router.get("/candidates", response_model=Page[CandidateResponse])
+@router.get("/candidates", response_model=Page[CandidateListItem])
 def list_candidates(
     current_user: CurrentUser,
     db: Session = Depends(get_db),
+    job_id: int | None = Query(default=None),
+    search: str | None = Query(default=None),
+    min_score: float | None = Query(default=None, ge=0, le=100),
+    max_score: float | None = Query(default=None, ge=0, le=100),
+    skills: list[str] | None = Query(default=None),
+    min_experience: float | None = Query(default=None, ge=0),
+    education_level: int | None = Query(default=None),
+    status: ApplicationStatus | None = Query(default=None),
+    sort_by: SortBy = Query(default="created_at"),
+    sort_order: SortOrder = Query(default="desc"),
     pagination: dict = Depends(pagination_params),
-) -> Page[CandidateResponse]:
+) -> Page[CandidateListItem]:
     return candidate_service.list_candidates(
-        db, page=pagination["page"], page_size=pagination["page_size"]
+        db,
+        job_id=job_id,
+        search=search,
+        min_score=min_score,
+        max_score=max_score,
+        skills=skills,
+        min_experience=min_experience,
+        education_level=education_level,
+        status=status,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        page=pagination["page"],
+        page_size=pagination["page_size"],
     )
 
 

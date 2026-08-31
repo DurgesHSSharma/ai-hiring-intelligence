@@ -1,7 +1,12 @@
 """Phase 3 acceptance: candidate listing/detail/delete, the privacy boundary
 on resume_text/resume_path, cascading delete (mirroring the job-side test),
-and application status updates.
+and application status updates. Phase 12 acceptance (Phases.md): the full
+F12 filter/search/sort surface on GET /candidates, all executed in SQL,
+including AND semantics across combined filters and stable two-direction
+sorting.
 """
+from sqlalchemy import text
+
 from app.core.enums import ApplicationStatus, JobSeniority, ParseStatus, ScoringMethod, SkillSource, SkillType
 from app.models.application import Application
 from app.models.candidate import Candidate
@@ -70,6 +75,260 @@ def test_list_candidates_excludes_resume_text_and_path(client, db_session, auth_
 def test_list_candidates_without_token_returns_401(client):
     response = client.get("/api/v1/candidates")
     assert response.status_code == 401
+
+
+# --- filter / search / sort (Phase 12, F12) --------------------------------------
+
+
+def _add_skill(db_session, candidate: Candidate, name: str) -> None:
+    db_session.add(
+        CandidateSkill(candidate_id=candidate.id, skill_name=name, skill_type=SkillType.TECHNICAL, source=SkillSource.DICTIONARY)
+    )
+    db_session.commit()
+
+
+def _score(db_session, candidate: Candidate, job: Job, final_fit_score: float) -> None:
+    db_session.add(
+        CandidateScore(
+            candidate_id=candidate.id,
+            job_id=job.id,
+            resume_match_score=final_fit_score,
+            skill_match_score=final_fit_score,
+            experience_score=final_fit_score,
+            education_score=100.0,
+            final_fit_score=final_fit_score,
+            scoring_method=ScoringMethod.TFIDF,
+        )
+    )
+    db_session.commit()
+
+
+def test_filter_min_score(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    low = _make_candidate(db_session, email="low-score@example.com")
+    high = _make_candidate(db_session, email="high-score@example.com")
+    _score(db_session, low, job, 50.0)
+    _score(db_session, high, job, 90.0)
+
+    response = client.get("/api/v1/candidates?min_score=80", headers=auth_headers)
+    ids = {item["id"] for item in response.json()["items"]}
+    assert ids == {high.id}
+
+
+def test_filter_skills_present(client, db_session, auth_headers):
+    with_skill = _make_candidate(db_session, email="has-python@example.com")
+    without_skill = _make_candidate(db_session, email="no-python@example.com")
+    _add_skill(db_session, with_skill, "Python")
+
+    response = client.get("/api/v1/candidates?skills=Python", headers=auth_headers)
+    ids = {item["id"] for item in response.json()["items"]}
+    assert with_skill.id in ids
+    assert without_skill.id not in ids
+
+
+def test_filter_min_experience(client, db_session, auth_headers):
+    junior = _make_candidate(db_session, email="junior@example.com", experience_years=0.5)
+    senior = _make_candidate(db_session, email="senior@example.com", experience_years=5.0)
+
+    response = client.get("/api/v1/candidates?min_experience=2", headers=auth_headers)
+    ids = {item["id"] for item in response.json()["items"]}
+    assert senior.id in ids
+    assert junior.id not in ids
+
+
+def test_filter_min_experience_excludes_unknown_not_treats_as_passing(client, db_session, auth_headers):
+    unknown = _make_candidate(db_session, email="unknown-exp@example.com", experience_years=None)
+    response = client.get("/api/v1/candidates?min_experience=0", headers=auth_headers)
+    ids = {item["id"] for item in response.json()["items"]}
+    assert unknown.id not in ids
+
+
+def test_combined_filters_are_sql_and_semantics(client, db_session, auth_headers):
+    """Phases.md Phase 12's exact acceptance example: min_score=80 AND
+    skills=Python AND min_experience=2 returns only candidates satisfying
+    ALL THREE, proven both via the API and an independent manual SQL query.
+    """
+    job = _make_job(db_session)
+
+    only_a = _make_candidate(db_session, email="only-a@example.com", experience_years=1.0)
+    _score(db_session, only_a, job, 90.0)
+    _add_skill(db_session, only_a, "SQL")
+
+    only_b_and_c = _make_candidate(db_session, email="only-bc@example.com", experience_years=5.0)
+    _score(db_session, only_b_and_c, job, 50.0)
+    _add_skill(db_session, only_b_and_c, "Python")
+
+    only_a_and_b = _make_candidate(db_session, email="only-ab@example.com", experience_years=1.0)
+    _score(db_session, only_a_and_b, job, 85.0)
+    _add_skill(db_session, only_a_and_b, "Python")
+
+    only_c = _make_candidate(db_session, email="only-c@example.com", experience_years=4.0)
+    _score(db_session, only_c, job, 40.0)
+    _add_skill(db_session, only_c, "Java")
+
+    all_three = _make_candidate(db_session, email="all-three@example.com", experience_years=3.0)
+    _score(db_session, all_three, job, 88.0)
+    _add_skill(db_session, all_three, "Python")
+    _add_skill(db_session, all_three, "SQL")
+
+    # Each filter alone returns more than 0 rows.
+    count_a = len(client.get("/api/v1/candidates?min_score=80", headers=auth_headers).json()["items"])
+    count_b = len(client.get("/api/v1/candidates?skills=Python", headers=auth_headers).json()["items"])
+    count_c = len(client.get("/api/v1/candidates?min_experience=2", headers=auth_headers).json()["items"])
+    assert count_a > 0 and count_b > 0 and count_c > 0
+
+    combined = client.get(
+        "/api/v1/candidates?min_score=80&skills=Python&min_experience=2", headers=auth_headers
+    )
+    assert combined.status_code == 200
+    items = combined.json()["items"]
+    ids = {item["id"] for item in items}
+    assert ids == {all_three.id}
+    assert items[0]["fit_score"] == 88.0
+
+    # Independent manual SQL query over the same three conditions.
+    manual_rows = db_session.execute(
+        text(
+            """
+            SELECT DISTINCT c.id
+            FROM candidates c
+            JOIN candidate_scores cs ON cs.candidate_id = c.id
+            JOIN candidate_skills sk ON sk.candidate_id = c.id AND LOWER(sk.skill_name) = LOWER('Python')
+            WHERE cs.final_fit_score >= 80
+              AND c.experience_years >= 2
+            """
+        )
+    ).all()
+    manual_ids = {row[0] for row in manual_rows}
+    assert manual_ids == ids == {all_three.id}
+
+
+def test_search_matches_name_email_or_skill(client, db_session, auth_headers):
+    by_name = _make_candidate(db_session, email="zzz1@example.com", name="Aria Nakamura")
+    by_email = _make_candidate(db_session, email="findme@example.com", name="Someone Else")
+    by_skill = _make_candidate(db_session, email="zzz3@example.com", name="Third Person")
+    _add_skill(db_session, by_skill, "Kubernetes")
+    unrelated = _make_candidate(db_session, email="zzz4@example.com", name="Unrelated Person")
+
+    name_hit = client.get("/api/v1/candidates?search=Nakamura", headers=auth_headers).json()["items"]
+    assert {c["id"] for c in name_hit} == {by_name.id}
+
+    email_hit = client.get("/api/v1/candidates?search=findme", headers=auth_headers).json()["items"]
+    assert {c["id"] for c in email_hit} == {by_email.id}
+
+    skill_hit = client.get("/api/v1/candidates?search=Kubernetes", headers=auth_headers).json()["items"]
+    assert {c["id"] for c in skill_hit} == {by_skill.id}
+    assert unrelated.id not in {c["id"] for c in skill_hit}
+
+
+def test_sort_by_fit_score_ascending_and_descending(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    low = _make_candidate(db_session, email="sort-low@example.com")
+    mid = _make_candidate(db_session, email="sort-mid@example.com")
+    high = _make_candidate(db_session, email="sort-high@example.com")
+    _score(db_session, low, job, 20.0)
+    _score(db_session, mid, job, 50.0)
+    _score(db_session, high, job, 80.0)
+
+    desc = client.get(
+        "/api/v1/candidates?sort_by=fit_score&sort_order=desc&page_size=100", headers=auth_headers
+    ).json()["items"]
+    desc_ids = [item["id"] for item in desc if item["id"] in (low.id, mid.id, high.id)]
+    assert desc_ids == [high.id, mid.id, low.id]
+
+    asc = client.get(
+        "/api/v1/candidates?sort_by=fit_score&sort_order=asc&page_size=100", headers=auth_headers
+    ).json()["items"]
+    asc_ids = [item["id"] for item in asc if item["id"] in (low.id, mid.id, high.id)]
+    assert asc_ids == [low.id, mid.id, high.id]
+
+
+def test_sort_is_stable_on_ties(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    first = _make_candidate(db_session, email="tie-1@example.com")
+    second = _make_candidate(db_session, email="tie-2@example.com")
+    _score(db_session, first, job, 50.0)
+    _score(db_session, second, job, 50.0)
+
+    response_1 = client.get(
+        "/api/v1/candidates?sort_by=fit_score&sort_order=desc&page_size=100", headers=auth_headers
+    ).json()["items"]
+    response_2 = client.get(
+        "/api/v1/candidates?sort_by=fit_score&sort_order=desc&page_size=100", headers=auth_headers
+    ).json()["items"]
+    ids_1 = [item["id"] for item in response_1 if item["id"] in (first.id, second.id)]
+    ids_2 = [item["id"] for item in response_2 if item["id"] in (first.id, second.id)]
+    # Deterministic (id ascending) tie-break, identical across repeated calls.
+    assert ids_1 == ids_2 == [first.id, second.id]
+
+
+def test_sort_fit_score_nulls_sort_last(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    scored = _make_candidate(db_session, email="has-score@example.com")
+    unscored = _make_candidate(db_session, email="no-score@example.com")
+    _score(db_session, scored, job, 40.0)
+
+    desc = client.get(
+        "/api/v1/candidates?sort_by=fit_score&sort_order=desc&page_size=100", headers=auth_headers
+    ).json()["items"]
+    relevant = [item["id"] for item in desc if item["id"] in (scored.id, unscored.id)]
+    assert relevant == [scored.id, unscored.id]
+
+
+def test_job_id_filter_restricts_to_applicants(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    other_job = _make_job(db_session, title="Other")
+    applicant = _make_candidate(db_session, email="applicant@example.com")
+    non_applicant = _make_candidate(db_session, email="non-applicant@example.com")
+    db_session.add(Application(candidate_id=applicant.id, job_id=job.id))
+    db_session.add(Application(candidate_id=non_applicant.id, job_id=other_job.id))
+    db_session.commit()
+
+    response = client.get(f"/api/v1/candidates?job_id={job.id}", headers=auth_headers)
+    ids = {item["id"] for item in response.json()["items"]}
+    assert ids == {applicant.id}
+
+
+def test_status_filter(client, db_session, auth_headers):
+    job = _make_job(db_session)
+    shortlisted = _make_candidate(db_session, email="shortlisted@example.com")
+    new_status = _make_candidate(db_session, email="new-status@example.com")
+    db_session.add(Application(candidate_id=shortlisted.id, job_id=job.id, status=ApplicationStatus.SHORTLISTED))
+    db_session.add(Application(candidate_id=new_status.id, job_id=job.id, status=ApplicationStatus.NEW))
+    db_session.commit()
+
+    response = client.get("/api/v1/candidates?status=shortlisted", headers=auth_headers)
+    ids = {item["id"] for item in response.json()["items"]}
+    assert shortlisted.id in ids
+    assert new_status.id not in ids
+
+
+def test_education_level_filter_exact_match(client, db_session, auth_headers):
+    level_3 = _make_candidate(db_session, email="level3@example.com", education_level=3)
+    level_1 = _make_candidate(db_session, email="level1@example.com", education_level=1)
+
+    response = client.get("/api/v1/candidates?education_level=3", headers=auth_headers)
+    ids = {item["id"] for item in response.json()["items"]}
+    assert level_3.id in ids
+    assert level_1.id not in ids
+
+
+def test_filter_empty_result(client, db_session, auth_headers):
+    _make_candidate(db_session, email="anyone@example.com")
+    response = client.get("/api/v1/candidates?min_score=99.9", headers=auth_headers)
+    body = response.json()
+    assert body["items"] == []
+    assert body["total"] == 0
+
+
+def test_filter_and_pagination_together(client, db_session, auth_headers):
+    for i in range(15):
+        candidate = _make_candidate(db_session, email=f"page{i}@example.com", experience_years=5.0)
+    response = client.get("/api/v1/candidates?min_experience=1&page=1&page_size=5", headers=auth_headers)
+    body = response.json()
+    assert len(body["items"]) == 5
+    assert body["total"] == 15
+    assert body["pages"] == 3
 
 
 # --- detail ----------------------------------------------------------------------
