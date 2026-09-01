@@ -1,0 +1,41 @@
+{
+  "real_eval_set/resume_001.pdf": {
+    "source_set": "real_eval_set",
+    "filename": "resume_001.pdf",
+    "candidate_id": 1,
+    "status_code": 503,
+    "error_body": {
+      "error": {
+        "code": "LLM_UNAVAILABLE",
+        "message": "LLM provider unavailable: Connection error.",
+        "details": {}
+      }
+    }
+  },
+  "real_eval_set/resume_003.pdf": {
+    "source_set": "real_eval_set",
+    "filename": "resume_003.pdf",
+    "candidate_id": 3,
+    "status_code": 503,
+    "error_body": {
+      "error": {
+        "code": "LLM_UNAVAILABLE",
+        "message": "LLM provider unavailable: Connection error.",
+        "details": {}
+      }
+    }
+  },
+  "real_eval_set/resume_004.docx": {
+    "source_set": "real_eval_set",
+    "filename": "resume_004.docx",
+    "candidate_id": 4,
+    "status_code": 503,
+    "error_body": {
+      "error": {
+        "code": "LLM_UNAVAILABLE",
+        "message": "LLM provider unavailable: Connection error.",
+        "details": {}
+      }
+    }
+  }
+}

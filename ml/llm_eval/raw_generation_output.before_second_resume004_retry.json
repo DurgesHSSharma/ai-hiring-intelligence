@@ -1,0 +1,218 @@
+{
+  "resume_001.pdf": {
+    "candidate_id": 1,
+    "job_id": 5,
+    "response": {
+      "candidate_id": 1,
+      "job_id": 5,
+      "generation_batch": "bb719d2b-9d79-44ae-afbb-56253a19bdb5",
+      "requested": 8,
+      "generated": 10,
+      "grounded": 10,
+      "partial": false,
+      "questions": [
+        {
+          "id": 32,
+          "question": "During the migration of the monolithic billing service at Corvid Labs, how did you design the new bounded services' APIs and what considerations did you make for data consistency across them?",
+          "category": "project",
+          "difficulty": "hard",
+          "rationale": "References the candidate's claim of leading the migration of a monolithic billing service into four bounded services.",
+          "generation_batch": "bb719d2b-9d79-44ae-afbb-56253a19bdb5",
+          "created_at": "2026-08-31T15:25:52"
+        },
+        {
+          "id": 33,
+          "question": "You mentioned reducing p99 checkout latency by roughly a third through query and cache work; can you walk through a specific query you optimized and the caching strategy you implemented?",
+          "category": "technical",
+          "difficulty": "hard",
+          "rationale": "Directly tied to the quantified latency improvement noted in the Corvid Labs experience.",
+          "generation_batch": "bb719d2b-9d79-44ae-afbb-56253a19bdb5",
+          "created_at": "2026-08-31T15:25:52"
+        },
+        {
+          "id": 34,
+          "question": "What contract testing framework or approach did you introduce between teams at Corvid Labs, and how did you measure its impact on integration regressions?",
+          "category": "skill_verification",
+          "difficulty": "medium",
+          "rationale": "Based on the candidate's introduction of contract testing between teams.",
+          "generation_batch": "bb719d2b-9d79-44ae-afbb-56253a19bdb5",
+          "created_at": "2026-08-31T15:25:52"
+        },
+        {
+          "id": 35,
+          "question": "Can you describe a complex PostgreSQL query you wrote for the billing service and how you used EXPLAIN or indexing to improve its performance?",
+          "category": "technical",
+          "difficulty": "medium",
+          "rationale": "Leverages the candidate's listed PostgreSQL skill and their work on query optimization.",
+          "generation_batch": "bb719d2b-9d79-44ae-afbb-56253a19bdb5",
+          "created_at": "2026-08-31T15:25:52"
+        },
+        {
+          "id": 36,
+          "question": "How have you leveraged Kubernetes to deploy and scale the services you built at Corvid Labs, and what challenges did you encounter with rolling updates?",
+          "category": "experience",
+          "difficulty": "medium",
+          "rationale": "Targets the candidate's Kubernetes experience noted in the skills section.",
+          "generation_batch": "bb719d2b-9d79-44ae-afbb-56253a19bdb5",
+          "created_at": "2026-08-31T15:25:52"
+        },
+        {
+          "id": 37,
+          "question": "When provisioning infrastructure for the job\u2011scheduling platform at Meridian Systems, how did you use Terraform to manage resources, and can you give an example of a module you authored?",
+          "category": "technical",
+          "difficulty": "medium",
+          "rationale": "References the candidate's Terraform skill and their work on an internal platform.",
+          "generation_batch": "bb719d2b-9d79-44ae-afbb-56253a19bdb5",
+          "created_at": "2026-08-31T15:25:52"
+        },
+        {
+          "id": 38,
+          "question": "Describe a situation at Corvid Labs where you had to coordinate multiple engineers during the billing service migration; how did you handle disagreements on architectural decisions?",
+          "category": "behavioral",
+          "difficulty": "easy",
+          "rationale": "Focuses on leadership and collaboration during the migration project.",
+          "generation_batch": "bb719d2b-9d79-44ae-afbb-56253a19bdb5",
+          "created_at": "2026-08-31T15:25:52"
+        },
+        {
+          "id": 39,
+          "question": "Although SQL is not listed on your resume, can you share an example of a raw SQL statement you wrote for PostgreSQL in any of your projects, and explain why you chose raw SQL over an ORM?",
+          "category": "skill_verification",
+          "difficulty": "easy",
+          "rationale": "Probes missing SQL skill by linking to the candidate's PostgreSQL experience.",
+          "generation_batch": "bb719d2b-9d79-44ae-afbb-56253a19bdb5",
+          "created_at": "2026-08-31T15:25:52"
+        }
+      ]
+    }
+  },
+  "resume_003.pdf": {
+    "candidate_id": 2,
+    "job_id": 5,
+    "response": {
+      "candidate_id": 2,
+      "job_id": 5,
+      "generation_batch": "bb800e31-b65d-40b2-8074-bc83dec0a007",
+      "requested": 8,
+      "generated": 10,
+      "grounded": 7,
+      "partial": false,
+      "questions": [
+        {
+          "id": 40,
+          "question": "Can you walk me through the specific steps you took to rebuild the onboarding flow at Lanterne Software, and how you measured its impact on user activation?",
+          "category": "project",
+          "difficulty": "hard",
+          "rationale": "References the candidate's claim of rebuilding the onboarding flow at Lanterne Software.",
+          "generation_batch": "bb800e31-b65d-40b2-8074-bc83dec0a007",
+          "created_at": "2026-08-31T15:25:55"
+        },
+        {
+          "id": 41,
+          "question": "What challenges did you encounter while owning the component library shared across three product squads at Lanterne Software, and how did you resolve them?",
+          "category": "experience",
+          "difficulty": "medium",
+          "rationale": "References the candidate's responsibility for a component library across three squads at Lanterne Software.",
+          "generation_batch": "bb800e31-b65d-40b2-8074-bc83dec0a007",
+          "created_at": "2026-08-31T15:25:55"
+        },
+        {
+          "id": 42,
+          "question": "Describe your process for designing the mobile companion app at Ashgrove Digital, from initial research to final handoff to developers.",
+          "category": "project",
+          "difficulty": "hard",
+          "rationale": "References the candidate's end\u2011to\u2011end design work on a mobile companion app at Ashgrove Digital.",
+          "generation_batch": "bb800e31-b65d-40b2-8074-bc83dec0a007",
+          "created_at": "2026-08-31T15:25:55"
+        },
+        {
+          "id": 43,
+          "question": "When creating design assets in Figma, Sketch, and Framer, how did you ensure the specifications were clear and implementable for developers working on the backend?",
+          "category": "technical",
+          "difficulty": "medium",
+          "rationale": "References the candidate's listed tools (Figma, Sketch, Framer) and the need for clear handoff to developers.",
+          "generation_batch": "bb800e31-b65d-40b2-8074-bc83dec0a007",
+          "created_at": "2026-08-31T15:25:55"
+        },
+        {
+          "id": 44,
+          "question": "Can you give an example of how you applied design systems principles to maintain consistency across multiple products at Lanterne Software?",
+          "category": "technical",
+          "difficulty": "medium",
+          "rationale": "References the candidate's mention of design systems in their toolset.",
+          "generation_batch": "bb800e31-b65d-40b2-8074-bc83dec0a007",
+          "created_at": "2026-08-31T15:25:55"
+        },
+        {
+          "id": 45,
+          "question": "Although your resume highlights front\u2011end design skills, have you ever written or reviewed HTML/CSS code that interacts with REST APIs, and if so, can you describe that experience?",
+          "category": "skill_verification",
+          "difficulty": "easy",
+          "rationale": "References the candidate's listed HTML/CSS skill and probes related backend interaction.",
+          "generation_batch": "bb800e31-b65d-40b2-8074-bc83dec0a007",
+          "created_at": "2026-08-31T15:25:55"
+        },
+        {
+          "id": 46,
+          "question": "What strategies did you use to collaborate with product managers and engineers while developing the onboarding flow at Lanterne Software?",
+          "category": "behavioral",
+          "difficulty": "medium",
+          "rationale": "References the candidate's onboarding flow work and probes cross\u2011functional collaboration.",
+          "generation_batch": "bb800e31-b65d-40b2-8074-bc83dec0a007",
+          "created_at": "2026-08-31T15:25:55"
+        }
+      ]
+    }
+  },
+  "resume_004.docx": {
+    "candidate_id": 1,
+    "job_id": 1,
+    "response": {
+      "candidate_id": 1,
+      "job_id": 1,
+      "generation_batch": "c7511ebe-09ce-4120-8664-a14ab3e88885",
+      "requested": 5,
+      "generated": 7,
+      "grounded": 4,
+      "partial": true,
+      "questions": [
+        {
+          "id": 1,
+          "question": "In your role as Operations Manager at Verdeco Logistics, you led a warehouse management system replacement across two sites; how would you design a FastAPI\u2011based REST endpoint to expose real\u2011time inventory levels from that new system?",
+          "category": "technical",
+          "difficulty": "hard",
+          "rationale": "References the WMS replacement project at Verdeco Logistics and probes Python/FastAPI knowledge.",
+          "generation_batch": "c7511ebe-09ce-4120-8664-a14ab3e88885",
+          "created_at": "2026-09-01T12:05:13"
+        },
+        {
+          "id": 2,
+          "question": "Can you walk me through the shift\u2011planning process you introduced at Verdeco Logistics that reduced overtime spend, and explain any data analysis or automation tools you used to achieve those savings?",
+          "category": "project",
+          "difficulty": "medium",
+          "rationale": "Directly ties to the shift\u2011planning process improvement mentioned in the resume.",
+          "generation_batch": "c7511ebe-09ce-4120-8664-a14ab3e88885",
+          "created_at": "2026-09-01T12:05:13"
+        },
+        {
+          "id": 3,
+          "question": "When you rebuilt the carrier scorecard at Castellon Freight, what data sources did you integrate, and did you write any SQL queries to aggregate carrier performance metrics?",
+          "category": "skill_verification",
+          "difficulty": "medium",
+          "rationale": "References the carrier scorecard rebuild at Castellon Freight to probe SQL experience.",
+          "generation_batch": "c7511ebe-09ce-4120-8664-a14ab3e88885",
+          "created_at": "2026-09-01T12:05:13"
+        },
+        {
+          "id": 4,
+          "question": "Describe a situation at Castellon Freight where you had to negotiate carrier rates using the rebuilt scorecard; how did you handle conflicting stakeholder priorities and what was the outcome?",
+          "category": "behavioral",
+          "difficulty": "easy",
+          "rationale": "References the specific carrier scorecard rebuild and rate negotiations at Castellon Freight.",
+          "generation_batch": "c7511ebe-09ce-4120-8664-a14ab3e88885",
+          "created_at": "2026-09-01T12:05:13"
+        }
+      ]
+    }
+  }
+}
