@@ -1,0 +1,1956 @@
+{
+  "candidates": {
+    "1": {
+      "id": 1,
+      "name": "Aaron Whitfield",
+      "email": "aaron.whitfield@example.com",
+      "phone": "+1 (415) 555-0142",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 6.6,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:12",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Python",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Go",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "gRPC",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Distributed Systems",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "Kubernetes",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Terraform",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "PostgreSQL",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Redis",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "2": {
+      "id": 2,
+      "name": "Priyanka Raghunathan",
+      "email": "priyanka.r@example.com",
+      "phone": "+91 80 4567 8901",
+      "education": "Master's Degree",
+      "education_level": 4,
+      "experience_years": 7.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:12",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Python",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "R",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Apache Kafka",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Apache Spark",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Airflow",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "dbt",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "SQL",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "AWS",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Apache HTTP Server",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Snowflake",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Retail",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "3": {
+      "id": 3,
+      "name": "Wei Chen EXPERIENCE",
+      "email": "wei.chen@example.com",
+      "phone": "+44 20 7946 0958",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 9.8,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:12",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "HTML",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "CSS",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "Figma",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Sketch",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [
+          {
+            "skill_name": "Communication",
+            "skill_type": "soft",
+            "source": "dictionary"
+          }
+        ],
+        "domain": []
+      }
+    },
+    "4": {
+      "id": 4,
+      "name": "Maria Fernandez-Lopez",
+      "email": "m.fernandez@example.com",
+      "phone": "+34 612 345 678",
+      "education": "Master's Degree",
+      "education_level": 4,
+      "experience_years": 9.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:12",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Logistics and Supply Chain",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Supply Chain Management",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "5": {
+      "id": 5,
+      "name": "Tobias Lindqvist",
+      "email": "t.lindqvist@example.com",
+      "phone": "+46 8 123 456",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": null,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "MATLAB",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Automotive",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Mechanical Engineering",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "6": {
+      "id": 6,
+      "name": "Samira Haddad",
+      "email": "samira.haddad@example.com",
+      "phone": "+1 212 555 0173",
+      "education": null,
+      "education_level": null,
+      "experience_years": 4.0,
+      "projects": [],
+      "certifications": [
+        "Certified Customer Success Manager, SuccessHQ Academy",
+        "Advanced Salesforce Administration"
+      ],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Salesforce",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Zendesk",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "7": {
+      "id": 7,
+      "name": "Nkechi Obi",
+      "email": "n.obi@example.com",
+      "phone": "+234 1 234 5678",
+      "education": "PhD",
+      "education_level": 5,
+      "experience_years": 11.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Public Health",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "8": {
+      "id": 8,
+      "name": "Hiroshi Tanaka",
+      "email": "h.tanaka@example.com",
+      "phone": "+81 3 1234 5678",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 10.2,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Java",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "Jenkins",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Selenium",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Cypress",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "JMeter",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "TestRail",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Quality Assurance",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "9": {
+      "id": 9,
+      "name": "Olumide Adeyemi",
+      "email": "o.adeyemi@example.com",
+      "phone": "+1 (646) 555-0198",
+      "education": "Master's Degree",
+      "education_level": 4,
+      "experience_years": 9.7,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "SQL",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "Microsoft Excel",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "10": {
+      "id": 10,
+      "name": "Maintained",
+      "email": "ravindran.k@example.com",
+      "phone": "+91 98765 43210",
+      "education": "Associate Degree",
+      "education_level": 2,
+      "experience_years": 4.0,
+      "projects": [],
+      "certifications": [
+        "CCNA Routing and Switching"
+      ],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Linux",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Wireshark",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Government",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "11": {
+      "id": 11,
+      "name": "Chloe Marchetti",
+      "email": "chloe.m@example.com",
+      "phone": "+39 06 1234 5678",
+      "education": "Associate Degree",
+      "education_level": 2,
+      "experience_years": 3.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [
+          {
+            "skill_name": "Leadership",
+            "skill_type": "soft",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Customer Service",
+            "skill_type": "soft",
+            "source": "dictionary"
+          }
+        ],
+        "domain": [
+          {
+            "skill_name": "Retail",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "12": {
+      "id": 12,
+      "name": "Anders Bjornstad",
+      "email": "a.bjornstad@example.com",
+      "phone": "+47 22 12 34 56",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 11.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Java",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Kotlin",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Spring",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Spring Boot",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Apache Kafka",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "AWS",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "PostgreSQL",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [
+          {
+            "skill_name": "Leadership",
+            "skill_type": "soft",
+            "source": "dictionary"
+          }
+        ],
+        "domain": []
+      }
+    },
+    "13": {
+      "id": 13,
+      "name": "Taylor Brooks",
+      "email": "taylor.brooks@example.com",
+      "phone": "415-555-0101",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 7.2,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Python",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Django",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "Docker",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "PostgreSQL",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "14": {
+      "id": 14,
+      "name": "Morgan Lee",
+      "email": "morgan.lee@example.com",
+      "phone": "628-555-0110",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 6.5,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Python",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "SQL",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "Microsoft Excel",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Tableau",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Retail",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "15": {
+      "id": 15,
+      "name": "Sam Okafor",
+      "email": "sam.okafor@example.com",
+      "phone": "212-555-0133",
+      "education": "Master's Degree",
+      "education_level": 4,
+      "experience_years": 7.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Python",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Machine Learning",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "TensorFlow",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "PyTorch",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "AWS",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "16": {
+      "id": 16,
+      "name": "Jordan Patel",
+      "email": "jordan.patel@example.com",
+      "phone": "303-555-0144",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 0.2,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Java",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "Git",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Linux",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "17": {
+      "id": 17,
+      "name": "Riley Nakamura",
+      "email": "riley.nakamura@example.com",
+      "phone": "646-555-0155",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 15.7,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Go",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "AWS",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Kubernetes",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "PostgreSQL",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "18": {
+      "id": 18,
+      "name": "Casey Whitfield",
+      "email": "casey.whitfield@example.com",
+      "phone": "512-555-0166",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 6.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Figma",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Sketch",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "19": {
+      "id": 19,
+      "name": "Devon Marsh",
+      "email": "devon.marsh@example.com",
+      "phone": "617-555-0177",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 7.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:16",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "HubSpot",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Marketing",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Search Engine Optimization",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Content Marketing",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "20": {
+      "id": 20,
+      "name": "Harper Quinn CONTACT",
+      "email": "harper.quinn@example.com",
+      "phone": "720-555-0188",
+      "education": "Master's Degree",
+      "education_level": 4,
+      "experience_years": 10.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Microsoft Excel",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Financial Analysis",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "21": {
+      "id": 21,
+      "name": "Elena Voss",
+      "email": "elena.voss@example.com",
+      "phone": "206-555-0199",
+      "education": "PhD",
+      "education_level": 5,
+      "experience_years": 8.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Python",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Natural Language Processing",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "PyTorch",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "22": {
+      "id": 22,
+      "name": "Bobby Kilgore",
+      "email": "bobby.kilgore@example.com",
+      "phone": "303-555-0100",
+      "education": "Associate Degree",
+      "education_level": 2,
+      "experience_years": 4.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Windows Server",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "23": {
+      "id": 23,
+      "name": "Frankie Dubois",
+      "email": "frankie.dubois@example.com",
+      "phone": "503-555-0111",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": null,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Adobe Photoshop",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Adobe Illustrator",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "24": {
+      "id": 24,
+      "name": "Ngozi Adeyemi",
+      "email": "ngozi.adeyemi@example.com",
+      "phone": "470-555-0122",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 5.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Civil Engineering",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "25": {
+      "id": 25,
+      "name": "Priya Subramaniam",
+      "email": "priya.subramaniam@example.com",
+      "phone": "415.555.0199",
+      "education": "Master's Degree",
+      "education_level": 4,
+      "experience_years": 9.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "SQL",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Product Management",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "26": {
+      "id": 26,
+      "name": "Oliver Hargreaves",
+      "email": "oliver.hargreaves@example.com",
+      "phone": "+44 20 7946 0958",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 7.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "AWS",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Microsoft Azure",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Terraform",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "27": {
+      "id": 27,
+      "name": "Micah Sorensen",
+      "email": "micah.sorensen@example.com",
+      "phone": "612-555-0115",
+      "education": "Master's Degree",
+      "education_level": 4,
+      "experience_years": 10.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Logistics and Supply Chain",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Supply Chain Management",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Vendor Management",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Six Sigma",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "28": {
+      "id": 28,
+      "name": "Greer Malone",
+      "email": "greer.malone@example.com",
+      "phone": "312-555-0116",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 6.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Microsoft Excel",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "QuickBooks",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Accounting",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Auditing",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "29": {
+      "id": 29,
+      "name": "Isla Fontaine",
+      "email": "isla.fontaine@example.com",
+      "phone": "404-555-0117",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 6.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Healthcare",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Clinical Research",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "30": {
+      "id": 30,
+      "name": "Theo Baptiste",
+      "email": "theo.baptiste@example.com",
+      "phone": "617-555-0118",
+      "education": "Master's Degree",
+      "education_level": 4,
+      "experience_years": 11.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Python",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "scikit-learn",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "SQL",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "31": {
+      "id": 31,
+      "name": "Winona Castellanos",
+      "email": "winona.castellanos@example.com",
+      "phone": "303-555-0119",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 17.7,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "System Design",
+            "skill_type": "technical",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Distributed Systems",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [],
+        "soft": [
+          {
+            "skill_name": "Leadership",
+            "skill_type": "soft",
+            "source": "dictionary"
+          }
+        ],
+        "domain": []
+      }
+    },
+    "32": {
+      "id": 32,
+      "name": "Rafael Beaumont CONTACT",
+      "email": "rafael.beaumont@example.com",
+      "phone": "646-555-0120",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 10.7,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [
+          {
+            "skill_name": "Leadership",
+            "skill_type": "soft",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Negotiation",
+            "skill_type": "soft",
+            "source": "dictionary"
+          }
+        ],
+        "domain": []
+      }
+    },
+    "33": {
+      "id": 33,
+      "name": "Yusuf Demir",
+      "email": "yusuf.demir@example.com",
+      "phone": "720-555-0121",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 5.4,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "CI/CD Pipelines",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "Kubernetes",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Terraform",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Jenkins",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "34": {
+      "id": 34,
+      "name": "Anaya Krishnan",
+      "email": "anaya.krishnan@example.com",
+      "phone": "971-555-0122",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 6.2,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Selenium",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Pytest",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Quality Assurance",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "35": {
+      "id": 35,
+      "name": "Declan Fitzgerald",
+      "email": "declan.fitzgerald@example.com",
+      "phone": "617-555-0123",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 2.5,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [
+          {
+            "skill_name": "Shell Scripting",
+            "skill_type": "technical",
+            "source": "dictionary"
+          }
+        ],
+        "tool": [
+          {
+            "skill_name": "Linux",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "36": {
+      "id": 36,
+      "name": "Bianca Torres",
+      "email": "bianca.torres@example.com",
+      "phone": null,
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 6.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Figma",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "UX Research",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "37": {
+      "id": 37,
+      "name": "Marcus Ferreira",
+      "email": null,
+      "phone": "786-555-0125",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 8.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Logistics and Supply Chain",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Vendor Management",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "38": {
+      "id": 38,
+      "name": "Odalys Reyes",
+      "email": "odalys.reyes@example.com",
+      "phone": "915-555-0126",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 8.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Adobe Photoshop",
+            "skill_type": "tool",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Adobe Illustrator",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "39": {
+      "id": 39,
+      "name": "Emmett Sokolov",
+      "email": "emmett.sokolov@example.com",
+      "phone": "206-555-0127",
+      "education": "Associate Degree",
+      "education_level": 2,
+      "experience_years": 3.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "40": {
+      "id": 40,
+      "name": "Nadia Osei",
+      "email": "nadia.osei@example.com",
+      "phone": "240-555-0128",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 1.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [
+          {
+            "skill_name": "Microsoft Excel",
+            "skill_type": "tool",
+            "source": "dictionary"
+          }
+        ],
+        "soft": [],
+        "domain": []
+      }
+    },
+    "41": {
+      "id": 41,
+      "name": "Callum Ashworth",
+      "email": "callum.ashworth@example.com",
+      "phone": "313-555-0129",
+      "education": "Bachelor's Degree",
+      "education_level": 3,
+      "experience_years": 8.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Manufacturing",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Mechanical Engineering",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    },
+    "42": {
+      "id": 42,
+      "name": "Simone Delacroix",
+      "email": "simone.delacroix@example.com",
+      "phone": "504-555-0130",
+      "education": "Master's Degree",
+      "education_level": 4,
+      "experience_years": 12.0,
+      "projects": [],
+      "certifications": [],
+      "parse_status": "parsed",
+      "parse_error": null,
+      "created_at": "2026-08-31T10:17:17",
+      "skills": {
+        "technical": [],
+        "tool": [],
+        "soft": [],
+        "domain": [
+          {
+            "skill_name": "Legal Compliance",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Regulatory Compliance",
+            "skill_type": "domain",
+            "source": "dictionary"
+          },
+          {
+            "skill_name": "Contract Management",
+            "skill_type": "domain",
+            "source": "dictionary"
+          }
+        ]
+      }
+    }
+  },
+  "jobs": {
+    "1": {
+      "id": 1,
+      "title": "Backend Engineer",
+      "description": "Build and maintain REST APIs for the hiring platform.",
+      "required_skills": [
+        "Python",
+        "FastAPI",
+        "PostgreSQL"
+      ],
+      "min_experience_years": 2.0,
+      "education_requirement": "Bachelor's",
+      "seniority": "mid",
+      "location": "Remote",
+      "status": "open",
+      "created_by": 1,
+      "created_at": "2026-08-31T10:16:32",
+      "updated_at": "2026-08-31T10:16:32",
+      "candidate_count": 42,
+      "average_fit_score": null,
+      "top_candidate": null
+    },
+    "2": {
+      "id": 2,
+      "title": "Data Scientist",
+      "description": "Build the attrition and ranking models for the platform.",
+      "required_skills": [
+        "Python",
+        "scikit-learn",
+        "pandas"
+      ],
+      "min_experience_years": 3.0,
+      "education_requirement": "Master's",
+      "seniority": "senior",
+      "location": "Bengaluru",
+      "status": "open",
+      "created_by": 1,
+      "created_at": "2026-08-31T10:16:32",
+      "updated_at": "2026-08-31T10:16:32",
+      "candidate_count": 42,
+      "average_fit_score": null,
+      "top_candidate": null
+    },
+    "3": {
+      "id": 3,
+      "title": "Backend Software Engineer",
+      "description": "Build and maintain REST APIs using Python and FastAPI on PostgreSQL.",
+      "required_skills": [
+        "Python",
+        "SQL",
+        "AWS",
+        "PostgreSQL",
+        "Kubernetes"
+      ],
+      "min_experience_years": 3.0,
+      "education_requirement": "Bachelor's",
+      "seniority": "mid",
+      "location": "Remote",
+      "status": "open",
+      "created_by": 1,
+      "created_at": "2026-08-31T10:17:11",
+      "updated_at": "2026-08-31T10:17:11",
+      "candidate_count": 0,
+      "average_fit_score": null,
+      "top_candidate": null
+    }
+  },
+  "resume_records": [
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_001.pdf",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_001.pdf",
+      "candidate_id": 1,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_002.docx",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_002.docx",
+      "candidate_id": 2,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_003.pdf",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_003.pdf",
+      "candidate_id": 3,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_004.docx",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_004.docx",
+      "candidate_id": 4,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_005.pdf",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_005.pdf",
+      "candidate_id": 5,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_006.docx",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_006.docx",
+      "candidate_id": 6,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_007.pdf",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_007.pdf",
+      "candidate_id": 7,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_008.pdf",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_008.pdf",
+      "candidate_id": 8,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_009.docx",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_009.docx",
+      "candidate_id": 9,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_010.pdf",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_010.pdf",
+      "candidate_id": 10,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_011.docx",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_011.docx",
+      "candidate_id": 11,
+      "status": "parsed"
+    },
+    {
+      "source_set": "real_eval_set",
+      "filename": "resume_012.pdf",
+      "source_path": "backend/tests/fixtures/real_eval_set/resume_012.pdf",
+      "candidate_id": 12,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_001.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_001.docx",
+      "candidate_id": 13,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_002.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_002.docx",
+      "candidate_id": 14,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_003.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_003.pdf",
+      "candidate_id": 15,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_004.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_004.docx",
+      "candidate_id": 16,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_005.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_005.pdf",
+      "candidate_id": 17,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_006.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_006.docx",
+      "candidate_id": 18,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_007.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_007.docx",
+      "candidate_id": 19,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_008.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_008.pdf",
+      "candidate_id": 20,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_009.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_009.docx",
+      "candidate_id": 21,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_010.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_010.docx",
+      "candidate_id": 22,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_011.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_011.pdf",
+      "candidate_id": 23,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_012.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_012.docx",
+      "candidate_id": 24,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_013.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_013.docx",
+      "candidate_id": 25,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_014.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_014.pdf",
+      "candidate_id": 26,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_015.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_015.docx",
+      "candidate_id": 27,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_016.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_016.docx",
+      "candidate_id": 28,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_017.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_017.pdf",
+      "candidate_id": 29,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_018.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_018.docx",
+      "candidate_id": 30,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_019.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_019.docx",
+      "candidate_id": 31,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_020.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_020.pdf",
+      "candidate_id": 32,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_021.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_021.docx",
+      "candidate_id": 33,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_022.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_022.docx",
+      "candidate_id": 34,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_023.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_023.pdf",
+      "candidate_id": 35,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_024.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_024.docx",
+      "candidate_id": 36,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_025.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_025.docx",
+      "candidate_id": 37,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_026.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_026.docx",
+      "candidate_id": 38,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_027.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_027.pdf",
+      "candidate_id": 39,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_028.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_028.docx",
+      "candidate_id": 40,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_029.docx",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_029.docx",
+      "candidate_id": 41,
+      "status": "parsed"
+    },
+    {
+      "source_set": "regression_eval_set",
+      "filename": "resume_030.pdf",
+      "source_path": "backend/tests/fixtures/regression_eval_set/resume_030.pdf",
+      "candidate_id": 42,
+      "status": "parsed"
+    }
+  ]
+}
