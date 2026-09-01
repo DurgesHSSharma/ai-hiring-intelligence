@@ -107,6 +107,18 @@ def extract_name(text: str) -> str | None:
         lower = line.lower().rstrip(":")
         if lower in _NON_NAME_KEYWORDS or len(line) > 60:
             continue
+
+        # Phase 13 item A5/A3 — a layout defect can weld a recognized
+        # section heading onto the same line as the candidate's own name
+        # (Phase 5 decision 27, e.g. "Wei Chen EXPERIENCE"). Strip a
+        # welded heading suffix before the shape check below, reusing the
+        # same word-boundary-safe, short-line-gated detection
+        # _extract_section() uses for section boundaries, so the heading
+        # is never returned as part of the name.
+        welded = _find_welded_heading_split(line, _ALL_HEADINGS)
+        if welded is not None:
+            line = welded[0]
+
         # The first line that survives the structural disqualifiers above
         # is the heuristic's one candidate. If it doesn't look like a name,
         # stop here rather than keep scanning later lines for a same-shaped
@@ -185,15 +197,89 @@ def _normalize_heading(line: str) -> str:
     return _TRAILING_HEADING_PUNCTUATION.sub("", line.strip()).strip().lower()
 
 
-def _extract_section(text: str, heading_variants: list[str]) -> str | None:
-    """Returns the text between a matching heading line and the next
-    recognized heading (any category) or end of text. None if no matching
-    heading line is found at all — callers decide their own fallback.
+# Phase 13 item A5/A1 — a two-column PDF layout can weld a section heading
+# onto the same line as adjacent content (Phase 5 decision 27, e.g.
+# "Wei Chen EXPERIENCE", "CONTACT EXPERIENCE"), which defeats the exact
+# full-line match above. Gated to short lines only, so an ordinary sentence
+# that happens to end in a heading word ("...gained valuable experience.")
+# is never mistaken for a heading line — a real welded heading in this
+# corpus is always a name/short-heading pair, not a full sentence.
+_WELDED_HEADING_MAX_WORDS = 6
+
+
+def _find_welded_heading_split(
+    line: str, heading_variants: "frozenset[str] | list[str]"
+) -> tuple[str, str] | None:
+    """If a short line's trailing word(s) exactly match one of
+    `heading_variants`, word-for-word (case-insensitive, never a substring
+    match — "R" inside "React" is exactly the class of bug this avoids,
+    the same discipline skill_matcher.py already uses for skill names),
+    returns (prefix, matched_phrase): prefix is everything before the
+    matched heading, in the line's original casing/spacing — e.g.
+    ("Wei Chen EXPERIENCE", _EXPERIENCE_HEADINGS) -> ("Wei Chen",
+    "experience"). None if the line doesn't end with a recognized heading
+    at all, is too long to plausibly be a welded heading rather than a
+    real sentence, or nothing would be left after removing it.
     """
-    lines = text.split("\n")
+    raw_words = line.strip().split()
+    if not raw_words or len(raw_words) > _WELDED_HEADING_MAX_WORDS:
+        return None
+    words = list(raw_words)
+    words[-1] = _TRAILING_HEADING_PUNCTUATION.sub("", words[-1])
+    lower_words = [w.lower() for w in words]
+
+    for phrase in heading_variants:
+        phrase_words = phrase.split()
+        n = len(phrase_words)
+        if 0 < n < len(lower_words) and lower_words[-n:] == phrase_words:
+            prefix = " ".join(raw_words[: len(raw_words) - n]).strip()
+            if prefix:
+                return prefix, phrase
+    return None
+
+
+def _matches_heading(line: str, heading_variants: "frozenset[str] | list[str]") -> bool:
+    """True if `line` is a recognized section heading — either the whole
+    line, normalized, exactly equals one of `heading_variants` (the
+    original, always-supported case), or a short line ends with a
+    recognized heading phrase welded onto adjacent content (Phase 13 A1,
+    see _find_welded_heading_split above). Does not attempt any general
+    two-column body-text reordering or gutter/column detection — this
+    only recognizes a heading *word*, wherever a full-line match already
+    would have, plus the one narrow welded-suffix case.
+    """
+    if _normalize_heading(line) in heading_variants:
+        return True
+    return _find_welded_heading_split(line, heading_variants) is not None
+
+
+def _find_section_bounds(
+    lines: list[str], heading_variants: "frozenset[str] | list[str]"
+) -> tuple[int, int] | None:
+    """Returns (start_idx, end_idx) — the half-open line-index range of the
+    section body (excluding the heading line itself) for the first
+    matching heading in `heading_variants`. end_idx is the index of the
+    next recognized heading (any category) or len(lines). None if no
+    matching heading line is found at all.
+
+    Welded-heading tolerance (_matches_heading, Phase 13 A1) applies only
+    to finding where the target section STARTS, not to finding where it
+    ends — deliberately. Both real observed cases (Phase 5 decision 27:
+    "Wei Chen EXPERIENCE", "CONTACT EXPERIENCE") weld a heading onto the
+    very first line of the section, where welded-tolerance is exactly
+    what's needed; their own section END is found via a clean, unwelded
+    heading line either way. Applying the same tolerance to the END search
+    was tried and reverted: the synthetic regression suite has a
+    (deliberately adversarial) case where a heading is welded onto the END
+    of an experience-entry title line, with that entry's own employment
+    date on the very next line — recognizing the weld there as an end
+    boundary cuts the section off before its own date range, misreading a
+    line that is genuinely still part of the section as if it started the
+    next one. End-boundary detection stays exact-match-only to avoid that.
+    """
     start_idx = None
     for i, line in enumerate(lines):
-        if _normalize_heading(line) in heading_variants:
+        if _matches_heading(line, heading_variants):
             start_idx = i + 1
             break
     if start_idx is None:
@@ -204,6 +290,19 @@ def _extract_section(text: str, heading_variants: list[str]) -> str | None:
         if _normalize_heading(lines[j]) in _ALL_HEADINGS:
             end_idx = j
             break
+    return start_idx, end_idx
+
+
+def _extract_section(text: str, heading_variants: list[str]) -> str | None:
+    """Returns the text between a matching heading line and the next
+    recognized heading (any category) or end of text. None if no matching
+    heading line is found at all — callers decide their own fallback.
+    """
+    lines = text.split("\n")
+    bounds = _find_section_bounds(lines, heading_variants)
+    if bounds is None:
+        return None
+    start_idx, end_idx = bounds
     section = "\n".join(lines[start_idx:end_idx]).strip()
     return section or None
 
@@ -348,6 +447,25 @@ def _experience_years_from_ner(text: str) -> float | None:
     return round(float(max(years) - min(years)), 1)
 
 
+def _text_excluding_education_section(text: str) -> str:
+    """Phase 13 item A5/A2 — a safety net for extract_experience_years()'s
+    whole-text fallback below, used only when no EXPERIENCE section can be
+    found at all (even with _extract_section()'s welded-heading tolerance,
+    A1). Removes a successfully detected EDUCATION section's own lines
+    (heading line included) before the fallback scans for date ranges, so
+    an education date range (e.g. "2012 - 2016") can never be counted as
+    employment. A no-op (returns text unchanged) when no EDUCATION section
+    is found — there is nothing safe to remove.
+    """
+    lines = text.split("\n")
+    bounds = _find_section_bounds(lines, _EDUCATION_HEADINGS)
+    if bounds is None:
+        return text
+    start_idx, end_idx = bounds
+    remaining = lines[: start_idx - 1] + lines[end_idx:]
+    return "\n".join(remaining)
+
+
 def extract_experience_years(text: str, *, as_of: date | None = None) -> float | None:
     """Returns None — never 0.0 — when nothing parses. A computed 0.something
     (a role that started last month) is a real answer; None means "could
@@ -355,15 +473,18 @@ def extract_experience_years(text: str, *, as_of: date | None = None) -> float |
 
     Scoped to the EXPERIENCE section when a heading is found, to avoid
     counting an EDUCATION section's own years (e.g. "2015-2019" as
-    college attendance). Falls back to scanning the whole resume only
-    when no EXPERIENCE heading is found at all — documented risk: that
-    fallback path can overcount by picking up non-employment date ranges.
+    college attendance). Falls back to scanning the whole resume — minus
+    any detected EDUCATION section (Phase 13 A2, see
+    _text_excluding_education_section above) — only when no EXPERIENCE
+    heading is found at all — documented risk: that fallback path can
+    still overcount by picking up some other non-employment date range
+    (e.g. a certification date) the EDUCATION exclusion doesn't cover.
     """
     as_of = as_of or date.today()
     section_text = _extract_section(text, _EXPERIENCE_HEADINGS)
     intervals = _parse_date_intervals(section_text, as_of=as_of) if section_text else []
     if not intervals:
-        intervals = _parse_date_intervals(text, as_of=as_of)
+        intervals = _parse_date_intervals(_text_excluding_education_section(text), as_of=as_of)
     if intervals:
         return _sum_intervals(intervals)
     return _experience_years_from_ner(text)
