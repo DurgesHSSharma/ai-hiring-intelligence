@@ -27,34 +27,103 @@ production pipeline this session, for cross-reference against
 `ml/ranking_eval/source_data_snapshot.json` if useful — not needed to do
 the labelling itself), `gold_skills` (**blank**), `human_notes` (**blank**).
 
-### Instructions for the labeler
+### Labeling protocol
 
-For each resume, open the source file (`source_file` — read the actual
-document, not a summary) and record every skill the resume **genuinely
-supports** — a skill the candidate can be reasonably said to have,
-based on what the resume actually says (a listed skill, a technology
-named in a role or project description, a certification, etc.).
+**Read independently first — do not use `data/skills.json` as a
+checklist.** Open the source file (`source_file` — read the actual
+document, not a summary) and read it the way a careful, independent
+human reader would, *before* consulting `data/skills.json` or any
+extractor output at all. This order is mandatory, not a stylistic
+preference: starting from the dictionary's vocabulary and checking
+which entries "fit" the resume would silently anchor the gold labels
+to the system's own vocabulary, artificially inflating precision/recall
+— the exact failure mode this evaluation exists to catch, not commit.
 
-- **Do not** add a skill just because it seems generally useful or
-  common for the person's apparent role.
-- **Do not** infer a skill from a job posting or from what you'd expect
-  someone in that role to know — only from what this specific resume
-  actually states or clearly demonstrates.
-- **Do not** guess from an ambiguous title alone (e.g. "Software
-  Engineer" alone does not imply any specific language or framework —
-  only credit what the resume text itself names).
-- Free-text is fine in `gold_skills` (e.g. a semicolon-separated list);
-  no fixed vocabulary is required — this is meant to capture what a
-  careful human reader would say, not what the system's own dictionary
-  happens to contain.
+Credit a skill only when, on that independent read:
 
-**Deliberately not shown:** this sheet does not include what the
-system's own dictionary matcher currently extracts for each resume.
-Showing that would anchor the human labeler toward the model's own
-output, defeating the purpose of an independent gold standard —
-precision/recall/F1 computed later against a biased gold set would be
-inflated and meaningless. The comparison against the system's actual
-output happens in the evaluation step, after labelling, not before.
+- the resume **explicitly names** the skill, or
+- the resume **describes a direct use or application** of it.
+
+Do **not** credit a skill merely because it is *implied* by:
+
+- job title
+- seniority
+- job function
+- general responsibilities
+
+For example: "Led a team of four" does **not** by itself become
+`Leadership` — leading four people doesn't explicitly name or
+demonstrate the skill of leadership as such. But "Supply chain
+management" written explicitly on the resume **does** count as a
+domain skill — it's named outright, not inferred from a title or duty.
+
+**Only after** the independent reading pass is complete, map each
+clearly-matching credited skill to its canonical name in
+`data/skills.json`:
+
+- If a resume skill clearly corresponds to a canonical entry (by name
+  or a listed alias), record the **canonical name**.
+- If no canonical entry clearly fits, record the resume's **own
+  wording** as free text instead.
+- **Never force an ambiguous mapping** — when it's unclear whether a
+  canonical entry is really the same skill the resume names, keep the
+  free-text wording rather than guessing.
+
+### Format
+
+- `gold_skills` entries are **semicolon-separated**.
+- Skill comparison against extractor output will eventually be
+  **case-insensitive** — matching the case-insensitive matching
+  `skill_matcher.py` (`compile_boundary_pattern`, `re.IGNORECASE`) and
+  `skill_gap.py` already use in production; this labelling convention
+  follows an existing rule rather than introducing a new one.
+- Every free-text fallback (a credited skill with no canonical
+  `skills.json` entry) must also be noted in `human_notes`, so
+  dictionary-coverage gaps can be measured later, separately from
+  extractor misses.
+
+### Provenance requirement
+
+The gold labels must be an **independently judged** gold standard, not
+a byproduct of inspecting the system under test. Whoever performs the
+independent reading-and-judging pass above must **not** have inspected
+`skill_matcher.py`, `skill_gap.py`, or `data/skills.json` as part of
+*making that judgment* — inspecting those first and then labeling would
+reproduce the exact anchoring bias this protocol exists to prevent,
+even if no extractor output is literally shown. Purely **mechanical
+transcription/formatting** of an already-made independent judgment
+(e.g. copying a finished list into the CSV, or applying the
+canonical-mapping step above to skills already credited) is fine — but
+the decision of *which* skills to credit must never be made with the
+extractor or the vocabulary file already in view.
+
+**Deliberately not shown, for the same reason:** this sheet does not
+include what the system's own dictionary matcher currently extracts for
+each resume. Showing that would anchor the human labeler toward the
+model's own output, defeating the purpose of an independent gold
+standard — precision/recall/F1 computed later against a biased gold set
+would be inflated and meaningless. The comparison against the system's
+actual output happens in the evaluation step, after labelling, not
+before.
+
+### Metrics to compute later
+
+Evaluation should measure **extraction + normalization** against the
+canonical vocabulary, not extraction alone — a correct skill returned
+in the wrong form is still a miss for a system that's supposed to
+return canonical names. It should also separately distinguish two
+different kinds of miss, because they call for different fixes:
+
+a. **Known-vocabulary misses** — the skill has a canonical
+   `skills.json` entry, but the extractor failed to find it in the
+   resume text (a matching bug or a missing alias).
+b. **Vocabulary-coverage misses** — the human credited a real skill for
+   which `data/skills.json` has no suitable entry at all (a dictionary
+   coverage gap, not a matching failure).
+
+Conflating these two would misdiagnose a coverage gap as a matching bug
+or vice versa; the `human_notes` free-text-fallback flag above is what
+makes this distinction possible later.
 
 ## 2. Semantic threshold pairs (`semantic_threshold_pairs_labelling_sheet.csv`)
 
