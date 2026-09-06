@@ -1,4 +1,5 @@
 {
+  "convention": "experience_years uses INCLUSIVE month counting (end_month - start_month + 1), matching the production convention implemented in backend/app/ml/extraction/field_extractor.py. This was adopted as the canonical labelling convention after Memory.md decisions 79-81 found that 10 of 11 non-null experience_years labels in this file were internally consistent under one of two coherent date-math conventions (inclusive-month, matching production, or plain exclusive calendar-date subtraction), while resume_001 matched neither and was a genuine arithmetic error. resume_001 has been corrected (7.5 -> 6.6); resume_003, resume_004, resume_008, resume_009, and resume_011 were consistent under exclusive counting and have been realigned to inclusive counting to match production (each resume's own 'notes' field shows both the inclusive and exclusive month counts). No extraction code or extractor convention changed as a result of this file's correction -- production already used inclusive counting throughout.",
   "resumes": [
     {
       "filename": "resume_001.pdf",
@@ -7,8 +8,8 @@
       "email": "aaron.whitfield@example.com",
       "phone": "14155550142",
       "education_level": "bachelor",
-      "experience_years": 7.5,
-      "notes": "Two contiguous roles Jun2016-Aug2019 and Sep2019-Dec2022; merged span 90 months."
+      "experience_years": 6.6,
+      "notes": "Two contiguous roles Jun2016-Aug2019 and Sep2019-Dec2022; merged span Jun2016-Dec2022 = 79 inclusive months = 6.58 years. CORRECTED from 7.5 (a 90-month/merged-span arithmetic error that does not match either counting convention -- see Memory.md decisions 79-81)."
     },
     {
       "filename": "resume_002.docx",
@@ -27,8 +28,8 @@
       "email": "wei.chen@example.com",
       "phone": "442079460958",
       "education_level": "bachelor",
-      "experience_years": 4.7,
-      "notes": "Numeric dates 03/2019-06/2021 and 07/2021-11/2023; contiguous, merged 56 months."
+      "experience_years": 4.8,
+      "notes": "Numeric dates 03/2019-06/2021 and 07/2021-11/2023; contiguous, merged span 03/2019-11/2023 = 57 inclusive months = 4.75 years (rounds to 4.8). REALIGNED from 4.7, which was the exclusive count (56 months = 4.667 years) -- not an error, but not the canonical convention."
     },
     {
       "filename": "resume_004.docx",
@@ -37,8 +38,8 @@
       "email": "m.fernandez@example.com",
       "phone": "34612345678",
       "education_level": "master",
-      "experience_years": 8.9,
-      "notes": "Written-out dates, 'to' separator. Jan2015-Dec2023 merged."
+      "experience_years": 9.0,
+      "notes": "Written-out dates, 'to' separator. Jan2015-Dec2023 merged = 108 inclusive months = 9.0 years exactly. REALIGNED from 8.9, which was the exclusive count (107 months = 8.917 years, rounds to 8.9) -- not an error, but not the canonical convention."
     },
     {
       "filename": "resume_005.pdf",
@@ -77,8 +78,8 @@
       "email": "h.tanaka@example.com",
       "phone": "81312345678",
       "education_level": "bachelor",
-      "experience_years": 5.8,
-      "notes": "Genuine 30-month employment gap between Mar2018 and Sep2020; must NOT be bridged."
+      "experience_years": 6.0,
+      "notes": "Genuine 30-month employment gap between Mar2018 and Sep2020; must NOT be bridged. Two real spans, Apr2015-Mar2018 and Sep2020-Aug2023, each 36 inclusive months, total 72 inclusive months = 6.0 years exactly. REALIGNED from 5.8, which was the exclusive count (35+35=70 months = 5.833 years, rounds to 5.8) -- not an error, but not the canonical convention."
     },
     {
       "filename": "resume_009.docx",
@@ -87,8 +88,8 @@
       "email": "o.adeyemi@example.com",
       "phone": "16465550198",
       "education_level": "master",
-      "experience_years": 9.6,
-      "notes": "Open-ended '2017 - Present'. Value assumes evaluation around Aug 2026 and drifts ~1 month per month."
+      "experience_years": 9.7,
+      "notes": "Open-ended '2017 - Present'. Value assumes evaluation around Aug 2026 and drifts ~1 month per month: Jan2017-Aug2026 = 116 inclusive months = 9.667 years (rounds to 9.7). REALIGNED from 9.6, which was the exclusive count (115 months = 9.583 years, rounds to 9.6) -- not an error, but not the canonical convention. Still subject to the same drift caveat regardless of convention."
     },
     {
       "filename": "resume_010.pdf",
@@ -107,8 +108,8 @@
       "email": "chloe.m@example.com",
       "phone": "390612345678",
       "education_level": "high_school",
-      "experience_years": 2.9,
-      "notes": "Secondary-school diploma only. Single role Jun2019-May2022."
+      "experience_years": 3.0,
+      "notes": "Secondary-school diploma only. Single role Jun2019-May2022 = 36 inclusive months = 3.0 years exactly. REALIGNED from 2.9, which was the exclusive count (35 months = 2.917 years, rounds to 2.9) -- not an error, but not the canonical convention."
     },
     {
       "filename": "resume_012.pdf",
