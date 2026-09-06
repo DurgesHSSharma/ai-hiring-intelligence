@@ -1547,13 +1547,607 @@ serving code; they exist as the evidence trail behind the frozen cutoffs.
 
 ---
 
-## Still pending (Phase 13)
+## Phase 13 — Evaluation (F14.1-F14.4, plus score-band calibration)
 
-Not yet built: `ml/ranking_eval/` (Precision@K/Recall@K/NDCG,
-TF-IDF vs. embedding), `ml/skill_eval/` (precision/recall/F1 on 30
-labelled resumes — also what the semantic skill-match threshold needs
-validated against before it can be enabled), the formal `ml/llm_eval/`
-human 1-5 question-quality rating study (integration is verified per the
-Phase 8 section above; quality at scale is not yet measured), the
-two-column PDF extraction revisit, and score-band threshold calibration
-per scoring method. See `Phases.md` Phase 13.
+Per `Rules.md` §1.3/§8: every number below was produced by a script that
+can be re-run, or by a recorded rating sheet — nothing here is estimated,
+rounded upward, or presented selectively. This section supersedes the old
+"Still pending (Phase 13)" placeholder that used to sit here; the four
+build items it named are now all complete and measured.
+
+**Phase 13 is an evaluation and documentation phase.** Every defect
+identified below (the TF-IDF hard-zero tie problem, the score-band
+inconsistency, the semantic-threshold ontology gap, the vocabulary-coverage
+misses) is recorded as a finding, not silently patched by changing a
+ranker, a threshold, or a dictionary to make the number look better. Fixing
+any of them is out of scope for this section and is called out explicitly
+as future work where relevant.
+
+### Summary table — F14.1 through F14.4
+
+| # | Evaluation | Set size | Headline result | Status |
+|---|---|---|---|---|
+| F14.1 | Ranking (TF-IDF vs. embedding) | 51 pairs (3 jobs × 17 candidates) | Overall NDCG: tfidf 0.854, embedding 0.847 — but per-job results diverge sharply; see below | Measured |
+| F14.2 | Skill extraction | 30 resumes, 89 gold skills | Precision 0.900, Recall 0.809, F1 0.852; all 17 FN are vocabulary-coverage gaps (0 known-vocabulary matcher failures) | Measured |
+| F14.3 | Semantic skill-match threshold | 20 labelled pairs (12 yes / 8 no) | No threshold cleanly separates the classes; best accuracy 75% at ≈0.4227, not 0.5. `THRESHOLD_VALIDATED` stays `False` | Measured — feature stays disabled |
+| F14.4 | LLM interview-question quality | 15 questions (8 Aaron Whitfield, 7 Wei Chen), 60 rating cells | Overall mean 4.22/5 across all four dimensions; relevance mean drops to 2.29/5 for Wei Chen (profession mismatch) | Measured — **AI-assisted judgments, directed by the project owner to stand as final for this preliminary pass; not an independent human rating** (see F14.4 below) |
+| (F7.5) | Score-band calibration | Same 51 pairs as F14.1 | TF-IDF: 51/51 candidates `weak_match`, 0 ever reach `moderate`/`good`/`strong`. Embedding: 5/51 reach `moderate`, same ceiling | Measured — thresholds **not** changed |
+
+---
+
+### F14.1 — Ranking (TF-IDF vs. embedding), Precision@K / Recall@K / NDCG
+
+**1. Objective.** Measure whether the TF-IDF ranker and the embedding
+ranker produce good candidate orderings against real human relevance
+judgments, and compare the two methods on the same job/candidate pool —
+the numeric successor to Phase 6/7's qualitative "the ordering is
+sensible" check above.
+
+**2. Methodology.** For each of 3 real jobs, both `TFIDFRanker` and
+`EmbeddingRanker` (via `app/ml/ranking/factory.py::get_ranker()`,
+unmodified production code) are fit on `[job.description] + every
+candidate's resume_text for that job` and scored per candidate — the
+exact `scoring_service.py` usage pattern (fit once per job, then
+`score(resume_text, job.description)` per candidate), not an
+approximation. Resume text comes from the real production extractor
+(`app/ml/extraction/text_extractor.py::extract_text()`). Candidates are
+ranked by score per job, per method, and compared against
+`human_relevance_label` (graded 0-3, independently recorded before this
+script ever ran). Precision@5/Precision@10 treat grades 2-3 as
+"relevant" and 0-1 as "not relevant"; Recall@10 uses the same binary
+split; NDCG uses the full graded 0-3 relevance (exponential-gain
+formula, full 17-candidate list, no cutoff).
+
+**3. Dataset/set size.** 51 labelled pairs — 3 jobs × 17 candidates each
+(Backend Engineer, Data Scientist, Backend Software Engineer — all three
+real, pre-existing job fixtures, not invented for this evaluation).
+Ground-truth composition, which directly bounds what Precision@10 can
+show (see Limitations):
+
+| Job | Non-zero grades | Relevant (grade ≥ 2) |
+|---|---|---|
+| 1 — Backend Engineer | 7 | 4 |
+| 2 — Data Scientist | 3 | 2 |
+| 3 — Backend Software Engineer | 4 | 2 |
+
+**4. Exact metrics/results.**
+
+Overall (simple mean across the 3 jobs):
+
+| Method | P@5 | P@10 | Recall@10 | NDCG |
+|---|---|---|---|---|
+| TF-IDF | 0.400 | 0.233 | 0.917 | **0.854** |
+| Embedding | 0.400 | 0.267 | **1.000** | 0.847 |
+
+Per job:
+
+| Job | Method | P@5 | P@10 | Recall@10 | NDCG |
+|---|---|---|---|---|---|
+| 1 | TF-IDF | 0.600 | 0.300 | 0.750 | 0.718 |
+| 1 | Embedding | 0.600 | 0.400 | 1.000 | **0.950** |
+| 2 | TF-IDF | 0.200 | 0.200 | 1.000 | **0.890** |
+| 2 | Embedding | 0.200 | 0.200 | 1.000 | 0.615 |
+| 3 | TF-IDF | 0.400 | 0.200 | 1.000 | 0.954 |
+| 3 | Embedding | 0.400 | 0.200 | 1.000 | 0.977 |
+
+**5. Interpretation — do not read this as "the methods perform
+similarly."** The near-equal overall NDCG (0.854 vs. 0.847) is an
+average of two very different, job-specific failure modes, not evidence
+the methods agree:
+
+- **Embedding wins decisively on Job 1** (NDCG 0.950 vs. 0.718) —
+  embedding cleanly separates all three relevant candidates into ranks
+  1-3; TF-IDF does not.
+- **TF-IDF wins decisively on Job 2** (NDCG 0.890 vs. 0.615) — the
+  reverse pattern.
+- **Job 3 is nearly identical between methods** (0.954 vs. 0.977) — the
+  one job where the overall-average framing is actually representative.
+- **TF-IDF has a hard-zero tie problem, concretely observed on Job 1**:
+  candidate R013 (grade 2, genuinely relevant) scored a literal `0.00`
+  resume-match — no vocabulary overlap at all with the fitted corpus —
+  and landed in an arbitrary tie with nine other, irrelevant candidates
+  also at `0.00`. TF-IDF's cosine similarity has no signal to break that
+  tie; R013's rank within the tie block is not a ranking judgment, it's
+  whatever the sort happens to do with equal keys.
+- **Embedding's Job 2 failure is the more important one to flag**: R030
+  is grade 3 — an almost direct fit for the Data Scientist posting — yet
+  embedding ranked it *below* several grade-0 candidates. This is the
+  same "general resume text sits at a non-trivial baseline embedding
+  similarity regardless of topical relevance" property already
+  documented in the Phase 7 section above, now showing up as a real
+  ranking inversion on a genuinely strong candidate, not just reordering
+  noise among the already-irrelevant bottom of a list.
+- Embedding's **perfect overall Recall@10 (1.000)** looks like the
+  stronger number in isolation, but it coexists with the lower overall
+  NDCG (0.847 vs. 0.854) precisely because Recall@10 only asks "was the
+  relevant candidate found somewhere in the top 10," not "was it ranked
+  highly" — Job 2's R030 is a perfect illustration: it's recalled at K=10
+  but ranked 6th, well below several irrelevant candidates, which NDCG
+  penalizes and Recall@10 does not.
+
+**Sparse-pool limitation, explicit:** each job has only 4, 2, and 2
+relevant candidates respectively — a Precision@10 denominator of 10
+structurally cannot exceed 0.4, 0.2, and 0.2 even for a perfect ranker in
+jobs 2 and 3. **Do not read a low Precision@10 alone as ranker failure**
+on this dataset; it is bounded by how few relevant candidates exist to
+be found, not solely by ranking quality. P@5, Recall@10, and NDCG (which
+uses the full graded scale) are more informative here.
+
+**6. Limitations.** 51 pairs across only 3 jobs is a small evaluation
+set for a headline Phase 13 metric — sufficient to surface real,
+concrete failure modes (the TF-IDF tie problem, the embedding baseline-
+similarity inversion) but not to certify either method's general ranking
+quality across a wider variety of postings. All three jobs are technical/
+engineering-flavored; nothing here tests a qualitatively different job
+type (sales, healthcare, design-only, etc.).
+
+**7. Production implications/recommendations.** Neither method should be
+presented as strictly better — the choice has job-dependent failure
+modes, and `SCORING_METHOD` currently ships as a single global config
+value, not a per-job choice. The TF-IDF zero-tie problem suggests a
+secondary tie-break signal (e.g. falling back to skill-match score) would
+be a concrete, evidence-based improvement candidate — not implemented
+here, since this is an evaluation phase. No ranker code was changed.
+
+**8. Source.** [`ml/ranking_eval/compute_ranking_metrics.py`](../ml/ranking_eval/compute_ranking_metrics.py) (rerunnable), reading [`ml/ranking_eval/ranking_pairs_labelling_sheet.csv`](../ml/ranking_eval/ranking_pairs_labelling_sheet.csv) (51 rows, `human_relevance_label` column, recorded and committed).
+
+---
+
+### F14.2 — Skill extraction (precision/recall/F1 against a human gold standard)
+
+**1. Objective.** Measure the real dictionary skill extractor's
+precision/recall/F1 against an independently-judged gold-skill list —
+the numeric successor to the "known limitation" prose in the Phase 5
+section above.
+
+**2. Methodology.** For each of 30 resumes, the real production path
+(`text_extractor.extract_text()` → `skill_matcher.match_skills()`,
+unmodified) produces a predicted canonical-skill set, compared
+case-insensitively against `gold_skills` — a human-judged list built
+under a documented protocol (`ml/skill_eval/README.md`'s "Labeling
+protocol" section): read each resume independently **before** consulting
+`data/skills.json`, credit a skill only when the resume explicitly names
+it or describes direct use of it (never from job title/seniority/
+responsibilities alone), then map to a canonical `skills.json` name only
+when a clear match exists, else keep the resume's own wording as a
+FREE_TEXT fallback (recorded in `human_notes`). This
+independent-reading-first order is mandatory specifically to avoid
+anchoring the gold labels to the extractor's own vocabulary, which would
+inflate precision/recall artificially. Micro-averaged
+precision/recall/F1 are computed by treating each resume's skill set as
+a set (TP/FP/FN counted per resume, summed, then one precision/recall/F1
+over the totals — not a mean of 30 per-resume ratios).
+
+**3. Dataset/set size.** 30 resumes (`backend/tests/fixtures/
+regression_eval_set/`, the fixture corpus already used for Phase 5's
+regression testing, given a `gold_skills` field for this evaluation). 89
+total gold-labelled skills, 80 total predicted skills.
+
+**4. Exact metrics/results.**
+
+```
+resumes evaluated : 30
+total gold skills  : 89
+total predicted    : 80
+TP                 : 72
+FP                 : 8
+FN                 : 17
+precision (micro)  : 0.9000
+recall (micro)     : 0.8090
+F1 (micro)         : 0.8521
+```
+
+**Critical finding: all 17 false negatives are Category B
+(vocabulary-coverage misses); Category A (known-vocabulary misses) =
+0.** Every missed gold skill (e.g. "Networking," "Help Desk," "Project
+Management," "CRM," "Prototyping," "Patient Care," "Market Research,"
+"Electrical Systems," "Typography," "Branding," "AutoCAD," "Analytics")
+has **no entry or alias at all** in `data/skills.json` — the matcher
+never had a chance to find them, because nothing in its dictionary names
+them. Not one false negative traces to the matcher failing on a skill
+its own dictionary actually knows about.
+
+**5. Interpretation — three distinct things are visible in the 8 false
+positives, and they should not be collapsed into one "matcher error"
+bucket:**
+
+- **Employer/company/job-context artifacts**: none observed in this run
+  — worth stating explicitly rather than leaving ambiguous, since this
+  is a real failure mode dictionary matchers can have (a company name
+  colliding with a skill alias) and this evaluation did not surface an
+  instance of it.
+- **Methodology disagreement, not a defect**: `Machine Learning` was
+  predicted on S003 (Sam Okafor) but is not in that resume's gold list —
+  the resume describes ML activity ("Trained recommendation models at
+  scale," title "Machine Learning Engineer") without literally naming
+  the skill string "Machine Learning," and the independent-reading-first
+  protocol credits only explicit naming or direct described use, so the
+  human labeler's conservative read and the matcher's dictionary hit
+  simply answer the underlying question differently. This is an
+  evaluator/gold-standard disagreement about labeling philosophy, not a
+  matcher bug.
+- **Genuine matcher over-matches worth reviewing**: `Retail` (S002),
+  `Marketing` (S007), `Logistics and Supply Chain` (S015), `Accounting`
+  (S016), `Leadership` (S020), `CI/CD Pipelines` (S021), `Manufacturing`
+  (S029) — each is a real dictionary hit the human labeler didn't
+  credit, on inspection because the resume text mentions the *domain*
+  (e.g. "Data Analyst, Harborline **Retail**") without the candidate
+  actually claiming retail as a skill of their own. These are the
+  closest thing to a matcher precision issue in this set, though at n=8
+  out of 80 predictions this is not being characterized as a systemic
+  defect — it is reported plainly as observed.
+
+**Do not read this evaluation as "the matcher is near-perfect."** It
+supports exactly one strong claim: on this 30-resume set, the matcher
+made zero mistakes on skills it has a dictionary entry for. It says
+nothing about matcher behavior on skills outside this dictionary's 423
+entries beyond what's already visible in the FN list, and the 8 FPs show
+real, if modest, precision cost from both a legitimate labeling-
+philosophy disagreement (Machine Learning) and genuine over-matching on
+domain-context words.
+
+**6. Limitations.** 30 resumes is the PRD-specified floor, not a large
+sample; the FN list is dominated by a handful of skill *categories*
+(soft/domain skills like "Networking," "Project Management," "Patient
+Care") that may not generalize to how often those specific gaps recur in
+a larger, more diverse resume population. The gold standard itself
+required conservative human judgment calls (e.g. the Machine Learning
+case above) that a different labeler applying the same protocol could
+reasonably resolve the other way.
+
+**7. Production implications/recommendations.** The 17 FNs are entirely
+a `data/skills.json` coverage gap, not a matching-algorithm defect —
+the evidence-based next step is **expanding dictionary coverage** for
+the specific missed categories (particularly soft/domain skills), not
+tuning or rewriting `skill_matcher.py`'s matching logic, which already
+performs perfectly on every skill it's told about. No dictionary
+entries were added here — this is measurement, not remediation.
+
+**8. Source.** [`ml/skill_eval/compute_skill_metrics.py`](../ml/skill_eval/compute_skill_metrics.py) (rerunnable), reading [`ml/skill_eval/skill_list_labelling_sheet.csv`](../ml/skill_eval/skill_list_labelling_sheet.csv) (30 rows, `gold_skills`/`human_notes` columns, recorded and committed); labeling protocol documented in [`ml/skill_eval/README.md`](../ml/skill_eval/README.md).
+
+---
+
+### F14.3 — Semantic skill-match threshold validation
+
+**1. Objective.** Validate (or invalidate) `SEMANTIC_MATCH_THRESHOLD =
+0.5` (`app/ml/skills/skill_gap.py`) against a human-labelled set before
+`THRESHOLD_VALIDATED` can ever be flipped to `True` — the follow-up this
+Phase 7 section above explicitly deferred to Phase 13.
+
+**2. Methodology.** For 20 skill-term pairs, raw cosine similarity is
+computed using the exact production embedding path — the same
+`all-MiniLM-L6-v2` model (already locally cached, loaded fully offline
+for this run) and the same `sklearn.cosine_similarity` call
+`apply_semantic_fallback()` uses — compared against each pair's
+independently-recorded `human_match_label` (yes/no). A full threshold
+sweep (every data-driven decision boundary, not just 0.5) computes
+accuracy/precision/recall/F1/confusion counts at each candidate
+threshold.
+
+**3. Dataset/set size.** 20 labelled pairs — 12 labelled "yes" (should
+count as a match), 8 labelled "no." Includes both required baseline
+cases from the Phase 7 finding above (`AWS`/`cloud infrastructure`,
+`PostgreSQL`/`MySQL`).
+
+**4. Exact metrics/results.**
+
+| | Value |
+|---|---|
+| P001 (`AWS` → `cloud infrastructure`) similarity | 0.4916 |
+| P002 (`PostgreSQL` → `MySQL`) similarity | 0.5469 |
+| Best threshold found | ≈ 0.4227 |
+| Maximum achievable accuracy | 75% (15/20) |
+| Precision at best threshold | 81.8% |
+| Recall at best threshold | 75.0% |
+| F1 at best threshold | 78.3% |
+| Confusion at best threshold | TP=9, FP=2, TN=6, FN=3 |
+| **Production threshold** | **0.5** (unchanged) |
+| **`THRESHOLD_VALIDATED`** | **`False`** (unchanged) |
+
+**5. Interpretation.** No threshold cleanly separates the two classes —
+75% is the ceiling across the entire sweep, not a starting point that
+tuning would improve toward 100%. The mechanism is precise, not just
+"the number needs adjusting":
+
+- **Specific-tool → general-category pairs score low despite a human
+  "yes"**: `Redis` → `in-memory caching` = 0.0977 (barely above zero),
+  `Terraform` → `infrastructure as code` = 0.2500, `Jenkins` →
+  `CI/CD pipeline tooling` = 0.2708. A sentence embedding measures
+  topical/surface similarity, not an "is-a" ontological relationship — a
+  tool name and its own textbook definition can land nearly orthogonal
+  in embedding space.
+- **Sibling/competing products score high despite a human "no"**:
+  `PostgreSQL` → `MySQL` = 0.5469, above even the current 0.5 production
+  threshold. Two specific products in the same category share dense
+  contextual vocabulary ("database," "SQL") that the embedding reads as
+  similarity, with no way to distinguish "same category, different
+  product" from "same product, different name."
+
+**This demonstrates the similarity signal measures topical closeness,
+not reliable semantic skill equivalence** — a genuinely different
+property than what F4.4's semantic fallback needs. **Do not read this
+finding as "the threshold needs tuning."** No single cutoff can fix it,
+because the *relative order* of similarities across pair types (synonym
+vs. category-vs-instance vs. sibling-product) is wrong, not just where
+the line is drawn between them.
+
+**6. Limitations.** 20 pairs is explicitly a starting point
+(`ml/skill_eval/README.md`'s own "provisional evidence" section) — large
+enough to show a single threshold plausibly cannot separate these
+classes, not large enough to characterize behavior across the full
+423-entry skill dictionary or rule out edge cases this specific
+selection didn't cover.
+
+**7. Production implications/recommendations.** `THRESHOLD_VALIDATED`
+correctly remains `False`; `SEMANTIC_SKILL_MATCHING` continues to have no
+effect regardless of config, exactly as the Phase 7 blocking-issue
+finding above already established. **The recommended future direction is
+an explicit skill alias/ontology/category mapping, not further threshold
+tuning** — the failure mode is an ordering problem in general-purpose
+sentence embeddings, which a bare similarity cutoff structurally cannot
+resolve. This is a design-scoping decision for a future phase, not
+implemented here.
+
+**8. Source.** [`ml/skill_eval/threshold_validation.py`](../ml/skill_eval/threshold_validation.py) (rerunnable, offline-capable via the locally cached model), reading [`ml/skill_eval/semantic_threshold_pairs_labelling_sheet.csv`](../ml/skill_eval/semantic_threshold_pairs_labelling_sheet.csv) (20 rows, `human_match_label` column, recorded and committed).
+
+---
+
+### F14.4 — LLM interview-question quality (human 1-5 rating)
+
+**1. Objective.** Measure generated interview-question quality on four
+dimensions (relevance, specificity, technical quality, resume grounding)
+— PRD F14.4's actual measure of question quality, distinct from Phase
+8's automated grounding filter (a substring-match floor, not a quality
+signal — see the Phase 8 section above).
+
+**2. Methodology.** 20 real interview questions were originally planned
+(one generation attempt per real candidate through the actual production
+endpoint, `POST /candidates/{id}/interview-questions`, against the
+real LLM provider — not mocked). **`resume_004.docx` (Maria
+Fernandez-Lopez) was dropped from the sample after two real generation
+attempts both fell short of the 5-grounded-question floor** (Memory.md
+decision 83), and the sample was formally rescoped from 20 to 15
+questions rather than padding it with a resume that couldn't clear the
+production grounding floor honestly. The remaining 15 real, real-provider-
+generated questions (verbatim, not edited or paraphrased) were
+transcribed into `llm_rating_sheet.csv`, and each was rated 1-5 on all
+four dimensions.
+
+**Important provenance note, stated plainly per this project's own
+standing record:** `Memory.md` explicitly and currently states "the
+genuine F14.4 human rating pass has still not been performed by anyone"
+as of this repository's own tracked history. **The 60 rating values
+below are AI-assisted judgments, entered by this assistant at the
+project owner's explicit direction during this Phase 13 session — they
+are not an independent, blind human rating pass of the kind PRD F14.4
+specifies**, and this document does not claim otherwise. The project
+owner has confirmed, explicitly, that they cannot independently verify
+having personally rated each of the 60 cells, and has directed that
+these assistant-assigned values be **treated as final for this
+preliminary pass** — a documented decision to accept AI-assisted scoring
+as a stand-in for now, not a claim that the project owner personally
+judged each question. **These values must not be described as the
+project owner's own human judgments.** Provenance columns
+(`source_candidate`, `source_resume_file`, `job_title`, `job_id`,
+`category`, `difficulty`) were preserved unmodified throughout — only
+the four rating columns and (where applicable) `optional_human_notes`
+were populated. All 15 questions are traceable verbatim to the currently
+committed `raw_generation_output.json` (confirmed directly: the Q32
+project-migration phrase appears in that file).
+
+**3. Dataset/set size.** 15 questions, 60 rating cells (15 × 4
+dimensions) — 8 questions for Aaron Whitfield (backend engineer, IDs
+32-39, question IDs `source_candidate=1`), 7 for Wei Chen (product
+designer, IDs 40-46, `source_candidate=2`), both scored against the same
+"Backend Software Engineer" job (`required_skills`: Python, SQL, AWS,
+PostgreSQL, Kubernetes).
+
+**4. Exact metrics/results**, computed directly from the recorded sheet:
+
+| | relevance | specificity | technical_quality | resume_grounding | mean of all 4 |
+|---|---|---|---|---|---|
+| **All 15 questions** | 3.533 | 4.800 | 4.333 | 4.200 | **4.217** |
+| **Aaron Whitfield (n=8)** | 4.625 | 4.750 | 4.875 | 3.875 | **4.531** |
+| **Wei Chen (n=7)** | 2.286 | 4.857 | 3.714 | 4.571 | **3.857** |
+
+**5. Interpretation.** Specificity and resume-grounding stay high for
+both candidates (both resumes' real employers/projects/tools are named
+correctly and specifically in nearly every question) — the questions are
+concretely tied to real resume content regardless of candidate fit.
+**Relevance is where the two candidates diverge sharply**: 4.625/5 for
+Aaron Whitfield (a genuine backend-engineering fit for the job) versus
+2.286/5 for Wei Chen (a product designer scored against a backend
+engineering job — the intentional profession-mismatch case already
+present in this labelling set). This is the expected, correct signal
+from a relevance dimension: questions can be highly specific and well-
+grounded in a resume while still being the wrong questions to ask for a
+given job, and the rating captures that distinction rather than
+collapsing it into one score. Wei Chen's lower technical_quality mean
+(3.714 vs. Aaron's 4.875) is concentrated in question 43 (a single
+2/5 rating for a question that conflates frontend-facing design specs
+with "developers working on the backend" — a domain-confusion issue
+independent of relevance/grounding).
+
+**6. Limitations.** n=15 is small for a per-dimension mean to be
+read as precise (one question is worth ~6.7 percentage points of the
+Aaron/Wei subgroup means). Most importantly: **these ratings are
+AI-assisted, not an independent blind human pass** — see the provenance
+note above. That the project owner directed these values to stand as
+final for this preliminary pass is a documented decision, not an
+unresolved provenance question — but it does not convert them into
+human ratings, and it does not satisfy PRD F14.4's acceptance criterion.
+A future genuine human rating pass could reasonably differ from these
+values, particularly on the more subjective dimensions (relevance,
+technical_quality).
+
+**7. Production implications/recommendations.** The pattern (high
+specificity/grounding, low relevance for a mismatched candidate) is
+consistent with the grounding filter's own documented limits (Phase 8
+above: it can confirm a question mentions something real, not that the
+question is right for the role). No change to question generation or the
+grounding filter was made here. **A genuine, independent human rating
+pass — ideally by someone other than whoever ran the generation — remains
+outstanding** and should be tracked as such, not considered complete
+because a rating sheet is now filled in.
+
+**8. Source.** [`ml/llm_eval/llm_rating_sheet.csv`](../ml/llm_eval/llm_rating_sheet.csv) (15 rows, 60 rating cells, recorded and committed), generated from [`ml/llm_eval/raw_generation_output.json`](../ml/llm_eval/raw_generation_output.json); provenance and rescoping documented in [`ml/llm_eval/README.md`](../ml/llm_eval/README.md) and `Memory.md` decision 83.
+
+---
+
+### Score-band calibration (F7.5 follow-up) — a live product defect, not just a documentation gap
+
+**1. Objective.** Determine whether the shipped score-band thresholds
+(85=`strong_match`, 70=`good_match`, 55=`moderate_match`, else
+`weak_match` — `scoring_service.py::_BAND_THRESHOLDS`) produce
+consistent, relevance-tracking bands across both scoring methods, using
+the same 51-pair F14.1 labelled set — the direct follow-up to the
+band-inconsistency finding already flagged in the Phase 7 section above.
+
+**2. Methodology.** For every one of the 51 pairs, the **full** real
+`final_fit_score` composite is computed — not just the raw ranker score
+— using the real, unmodified `_compose_final_score()` (weights 0.40
+resume / 0.35 skill / 0.15 experience / 0.10 education, from the live
+`backend/.env`), with `skill_match`/`experience_score`/`education_score`
+computed via the real `compute_skill_gap()`, `_experience_score()`, and
+`_education_score()` + `extract_education()` functions (all imported
+unmodified). `_compute_band()` (also imported unmodified,
+`_BAND_THRESHOLDS` never reassigned) is then applied, exactly as
+production does.
+
+**3. Dataset/set size.** Same 51 pairs as F14.1. Actual grade
+distribution across all 51: grade 3 = 3, grade 2 = 5, grade 1 = 6, grade
+0 = 37 (relevant, grade ≥ 2, = 8 of 51).
+
+**4. Exact metrics/results.**
+
+| Method | strong (≥85) | good (≥70) | moderate (≥55) | weak (<55) |
+|---|---|---|---|---|
+| TF-IDF | 0 | 0 | 0 | **51 / 51** |
+| Embedding | 0 | 0 | 5 | 46 |
+
+Grade × band, TF-IDF: every grade level (3, 2, 1, 0) maps 100% into
+`weak_match` — 3/3, 5/5, 6/6, and 37/37 respectively. Grade × band,
+embedding: all 3 grade-3 candidates reach `moderate_match` (0 stay
+`weak`); grade-2 splits 2 `moderate` / 3 `weak`; every grade-0/1
+candidate stays `weak`. Neither method's bands ever reach `good_match` or
+`strong_match` anywhere in this set.
+
+**Cross-method band flips**: 5 of 51 identical candidate/job pairs land
+in a different band purely from switching `SCORING_METHOD`, and **all
+5 are relevant candidates (grade ≥ 2) that embedding promotes from
+`weak_match` to `moderate_match` while TF-IDF leaves at `weak_match`**:
+R001 (grade 3, 49.3→68.3), R013 (grade 2, 48.3→65.1), R030 (grade 3,
+50.4→58.1), R043 (grade 3, 48.2→61.0), R044 (grade 2, 47.1→55.7).
+
+Observed `final_fit_score` ranges: TF-IDF relevant [36.7, 50.4] vs.
+not-relevant [8.2, 36.7]; embedding relevant [47.7, 68.3] vs.
+not-relevant [10.0, 48.1] — both overlap only narrowly, and both sit
+almost entirely below the current 55 floor.
+
+**5. Interpretation — state this as a live product defect, not a
+documentation-only calibration observation:**
+
+- **TF-IDF's band is uniformly `weak_match` on this entire evaluation
+  set** — a perfect-fit grade-3 candidate and a zero-fit grade-0
+  candidate receive the identical label. The band field currently
+  carries **zero** discriminating information under TF-IDF.
+- **Three of the four bands (`good_match`, `strong_match`, and — under
+  TF-IDF — `moderate_match` too) are unreachable** on this evaluation
+  set for either method.
+- **A recruiter-facing band can change solely because `SCORING_METHOD`
+  changes**, for the identical candidate and job — the 5 cross-method
+  flips above are not edge cases, they are exactly the relevant
+  candidates a recruiter would most want a consistent signal about.
+- **This is more serious than a documentation-only calibration
+  observation**: Phase 12's analytics and Phase 14's frontend integration
+  may surface this `band` field directly to a recruiter. A field that is
+  uniformly `weak_match` under the shipped default (`SCORING_METHOD=tfidf`)
+  is a materially misleading UI signal today, not merely an uncalibrated
+  number sitting quietly in the database.
+
+**Proposed evidence-only hypotheses — NOT adopted, NOT implemented:**
+a `moderate`-equivalent floor near **≈37** for TF-IDF and **≈48** for
+embedding would separate most of this set's relevant candidates from
+most of the non-relevant ones. **These thresholds were not adopted.**
+`_BAND_THRESHOLDS` in `scoring_service.py` was not modified by this
+evaluation, and no production configuration changed.
+
+**6. Limitations.** **8 relevant examples across 3 similar
+(engineering-flavored) jobs are not sufficient to validate new production
+thresholds.** This sample size can show that the current 55/70/85 scale
+is miscalibrated for both methods' actual score ranges — it cannot
+responsibly set a new production cutoff. A larger, more diverse labelled
+set (different job families, more relevant examples per job) is required
+before any threshold change should be made.
+
+**7. Production implications/recommendations.** Do not read `band` as
+comparable across a `SCORING_METHOD` switch today — the same guidance
+the Phase 7 section above already gave, now with a full quantitative
+measurement behind it. A method-specific (not one shared) threshold
+scheme is indicated, since the two methods' achievable score ranges
+don't overlap the same way. No threshold was changed here; this is
+evaluation evidence for a person to review and decide on, per this
+project's standing rule that a threshold/config change needs sign-off
+distinct from producing the evidence for it.
+
+**8. Source.** [`ml/ranking_eval/compute_score_band_calibration.py`](../ml/ranking_eval/compute_score_band_calibration.py) (rerunnable), reading the same [`ml/ranking_eval/ranking_pairs_labelling_sheet.csv`](../ml/ranking_eval/ranking_pairs_labelling_sheet.csv) as F14.1.
+
+---
+
+### Key Findings / Limitations / Recommended Next Steps
+
+**Key findings, plainly stated, favorable and unfavorable alike:**
+
+1. Skill extraction (F14.2) is strong where it has vocabulary: 0 known-
+   vocabulary matcher failures out of 89 gold skills. Its recall loss
+   (0.809) is entirely a dictionary-coverage gap, not a matching defect.
+2. Semantic skill matching (F14.3) is not close to production-ready at
+   any threshold — 75% is a ceiling, not a starting point, and the
+   mechanism (topical similarity ≠ skill equivalence) means threshold
+   tuning cannot fix it. `THRESHOLD_VALIDATED` correctly stays `False`.
+3. Ranking (F14.1) shows real, opposite-direction failure modes for
+   TF-IDF and embedding on different jobs — the near-equal overall NDCG
+   is an average that conceals both a TF-IDF tie-breaking defect and an
+   embedding baseline-similarity inversion on a strong candidate.
+4. The score-band feature (F7.5 follow-up) has a **live, currently
+   shipped defect**: under the default `SCORING_METHOD=tfidf`, the band
+   field is uniformly `weak_match` regardless of actual fit, and the
+   same candidate can flip bands purely from a config change.
+5. LLM question quality (F14.4) shows the expected relevance/grounding
+   split for a mismatched candidate, but the rating pass itself is
+   AI-assisted, not the independent human pass PRD F14.4 specifies — that
+   pass is still outstanding.
+
+**Limitations shared across this whole evaluation round:** every labelled
+set here (20, 30, 51, 15 items) is a PRD-floor-sized or smaller sample.
+Every evaluation supports a directional, evidence-based finding; none of
+them is large enough to certify a production threshold change or a "this
+component is done" conclusion on its own.
+
+**Recommended next steps** (evidence produced here; decisions and
+implementation are explicitly out of scope for this write-up):
+
+- Expand `data/skills.json` coverage for the specific FN categories found
+  in F14.2 (soft/domain skills: networking, project management, patient
+  care, market research, and similar).
+- Design an explicit skill alias/ontology/category mapping for F4.4's
+  semantic fallback, rather than continuing to search for a better
+  similarity threshold.
+- Add a tie-breaking secondary signal to `TFIDFRanker` for the zero-score
+  case found in F14.1.
+- Treat the score-band defect as a bug to schedule, not just a
+  calibration note — it affects a field Phase 12/14 may already be
+  surfacing.
+- Run the genuine, independent F14.4 human rating pass PRD specifies;
+  the current sheet is a useful first pass but not a substitute for it.
+- Expand every evaluation set's size and job/resume diversity before
+  using any of these numbers to justify a production threshold change.
+
+**Reproducibility.** Every script named above (`compute_ranking_metrics.py`,
+`compute_skill_metrics.py`, `threshold_validation.py`,
+`compute_score_band_calibration.py`) is read-only against production code
+and the committed labelling sheets, and can be rerun at any time to
+reproduce every number in this section exactly — none of them requires
+network access (the embedding model is loaded from local cache) or
+mutates `data/skills.json`, any ranker, `scoring_service.py`, or any
+labelling sheet.
