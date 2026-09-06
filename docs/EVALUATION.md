@@ -322,6 +322,73 @@ No change. The remaining `resume_011` education miss is the same
 already-documented, deliberately-unfixed non-English gap (`"Diploma di
 Maturita"`) — unaffected, since neither new pattern appears in that text.
 
+## Phase 5/6 — field-extraction numbers above are now stale (Phase 13 addendum, 2026-09-06)
+
+**The Phase 5 "Results — post-fix measurement" table and the Phase 6
+re-measurement table above were both measured against code and labels
+that have since changed. Neither table above has been edited — this
+note records what changed and why, without touching the original
+measurements.**
+
+Two independent changes postdate every number in both tables above:
+
+1. **Phase 13 item A5 (`2b23a31`, `Memory.md` decision 78)** fixed the
+   welded-heading section-boundary bug (`resume_003.pdf`'s `"Wei Chen
+   EXPERIENCE"`, `resume_008.pdf`'s `"CONTACT EXPERIENCE"`) that both
+   tables above were measured against as an open, unfixed defect.
+2. **`real_eval_set/labels.json`'s inclusive-month-counting correction
+   (`8954f25`)** fixed `resume_001`'s standalone arithmetic-error label
+   (7.5 → 6.6 years) and realigned five other labels (`resume_003`,
+   `resume_004`, `resume_008`, `resume_009`, `resume_011`) from
+   exclusive to inclusive month counting, matching `field_extractor.py`'s
+   production convention.
+
+**Re-measured, `python -m scripts.evaluate_field_extraction` against
+`real_eval_set/` (n=12), current code + corrected labels:**
+
+```
+name                  11/12  (91.7%)
+email                 12/12  (100.0%)
+phone                 12/12  (100.0%)
+education_level       11/12  (91.7%)
+experience_years      12/12  (100.0%)
+```
+
+| Field | Phase 6 table above | Now (current code + corrected labels) |
+|---|---|---|
+| name | 83.3% (10/12) | **91.7% (11/12)** |
+| email | 100% (12/12) | 100% (12/12) |
+| phone | 100% (12/12) | 100% (12/12) |
+| education_level | 91.7% (11/12) | 91.7% (11/12) |
+| experience_years | 83.3% (10/12) | **100% (12/12)** |
+
+**The two changes above are not interchangeable, and neither one alone
+explains all of it — attributed separately, not combined into one
+number:**
+
+- **The A5 welded-heading fix accounts for both real improvements**
+  (name 10/12→11/12, experience_years 10/12→12/12). Verified directly:
+  rerunning the evaluation against the *original*, uncorrected
+  `labels.json` (via `git stash`) on current code already produces the
+  same 11/12 name and 12/12 experience_years — the label correction
+  changes nothing on its own.
+- **The `labels.json` label correction changed zero pass/fail
+  outcomes.** Every one of its six corrected values moved by ≤0.9 years,
+  and the harness's `experience_years` grading tolerance is ±1.0 year —
+  so no resume's correctness verdict flips as a result of the label
+  correction alone, confirmed by running the evaluation against both the
+  original and corrected label files on identical (current) code and
+  getting an identical result.
+- `education_level` is unchanged (91.7%, 11/12) by either change — the
+  one remaining miss (`resume_011`, the deliberately-unfixed non-English
+  `"Diploma di Maturita"` gap) is untouched by both the A5 extraction fix
+  and the label correction.
+
+No production code, extraction logic, or label file was changed by this
+note — it is a documentation-only reconciliation. See `Memory.md`
+decisions 78-81 and 84-88, and `labels.json`'s own `"convention"` field,
+for the full history behind both changes.
+
 ## Phase 6 — ranking sensibility (qualitative, not a numeric metric)
 
 Phase 6's acceptance criterion is a manual sensibility check ("the ordering
