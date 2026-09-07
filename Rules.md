@@ -20,6 +20,8 @@ These rules are binding. Where a rule conflicts with a suggestion made mid-sessi
 - Reading `frontend/` is allowed once it exists, and only for the purpose of matching the backend to it.
 - When the frontend and backend disagree, the backend changes.
 
+**Override (2026-09-06):** The project owner has explicitly directed this assistant to build `frontend/` directly in this repository, ahead of Phase 14's original "owner delivers it" precondition — see `Memory.md` decisions 89-90. This boundary is lifted for that purpose only. Every other rule in this file (no fabricated results, no secrets, layering discipline on the backend side, scope-of-change discipline, etc.) still applies in full to any frontend code written under this override.
+
 ### 1.2 Never run version control commands
 
 No `git init`, `add`, `commit`, `push`, `pull`, `branch`, `merge`, `rebase`, `tag`, or remote operations. The owner handles all version control. Write files; do not stage them.

@@ -1,6 +1,6 @@
 # API Reference
 
-Generated summary of the actual backend contract. Updated whenever the contract changes (Rules.md §8) — most recently for Phase 12 (analytics, comparison, candidate filtering, CSV export).
+Generated summary of the actual backend contract. Updated whenever the contract changes (Rules.md §8) — most recently to add the `POST /jobs/{job_id}/resumes` section, live since Phase 4 but never documented here until the Phase 14 frontend build surfaced the gap (2026-09-06); no backend behavior changed. Before that, most recently for Phase 12 (analytics, comparison, candidate filtering, CSV export).
 
 Base path: `/api/v1`. All responses are JSON. All routes except `/health`, `/auth/register`, and `/auth/login` require `Authorization: Bearer <token>`.
 
@@ -241,6 +241,41 @@ Authenticated but not an admin — **403**:
 ```
 
 No token — **401** (checked before the role check).
+
+---
+
+## Resumes
+
+### `POST /jobs/{job_id}/resumes` — auth required
+
+`multipart/form-data`, one or more `files` parts (PDF or DOCX). This endpoint was live from Phase 4 but missing from this document until now — added here, not newly built.
+
+Every file is validated (extension, then MIME type, then magic bytes, then size, cheapest first) and text-extracted independently — one bad file never fails the batch. A file whose extracted text is under 100 characters (e.g. a scanned image PDF) is recorded as `parse_failed` with `RESUME_TEXT_TOO_SHORT`, not silently dropped or treated as an empty candidate. An email match against an existing candidate updates that candidate and adds a new `Application` to this job, rather than creating a duplicate person (Phase 5); a resume with no extractable email can never dedupe-match another for the same reason.
+
+Only three conditions abort the whole call before any file is processed — job not found, an empty file list, or exceeding `MAX_FILES_PER_BATCH` (50, `.env`) — every other failure (unsupported type, oversized, corrupt, parse failure) is embedded per-file in a **200** response:
+
+```json
+{
+  "job_id": 1,
+  "uploaded": 8,
+  "failed": 2,
+  "results": [
+    { "filename": "grace_hopper.pdf", "status": "parsed", "candidate_id": 12, "code": null, "error": null },
+    { "filename": "scanned.pdf", "status": "parse_failed", "candidate_id": 13, "code": "RESUME_TEXT_TOO_SHORT", "error": "Extracted text is too short to be a usable resume." },
+    { "filename": "notes.txt", "status": "parse_failed", "candidate_id": null, "code": "UNSUPPORTED_FILE_TYPE", "error": "Only PDF and DOCX files are supported." }
+  ]
+}
+```
+
+`candidate_id` is `null` only for a Tier-1 validation failure (extension/MIME/magic-bytes/size) — the file was never accepted, so no candidate row exists for it. Every other outcome, including a Tier-2 parse failure, has a real `candidate_id`.
+
+Request-level failures, before any file is touched:
+
+```json
+{ "error": { "code": "NO_FILES_PROVIDED", "message": "No files were provided.", "details": {} } }
+```
+
+Nonexistent job — **404** `JOB_NOT_FOUND`. More than `MAX_FILES_PER_BATCH` files — **400** `BATCH_LIMIT_EXCEEDED`.
 
 ---
 

@@ -5,6 +5,8 @@
 
 The frontend is authored and owned by the project owner. This document records the visual system so that the product, the PDF shortlist export, and any future surface stay consistent. Nothing here is an instruction to generate UI code.
 
+**Superseded for the web frontend (2026-09-06):** the project owner has adopted a different visual direction — the "HireIntel" reference (purple/indigo SaaS dashboard) — as final for the `frontend/` web application, explicitly superseding this document's colour (§2), and signature-element (§1) choices for that surface. See `Memory.md` decision 90. This document's other sections (accessibility, motion discipline, voice, spacing scale where compatible) and its authority over the **PDF shortlist export** (§10, a backend-rendered surface, unaffected by this frontend decision) remain in force unless the owner says otherwise.
+
 ---
 
 ## 1. Direction
