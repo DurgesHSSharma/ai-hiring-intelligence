@@ -840,6 +840,10 @@ ANTHROPIC_API_KEY=
 LLM_TIMEOUT_SECONDS=30
 
 ATTRITION_MODEL_PATH=../ml/attrition/artifacts/calibrated_model.joblib
+
+# Phase 15: per-user cap on POST /candidates/{id}/interview-questions,
+# per rolling clock hour. See Rules.md 5.3's RATE_LIMIT_EXCEEDED entry.
+INTERVIEW_RATE_LIMIT_PER_HOUR=20
 ```
 
 `config.py` validates at import: `SCORING_METHOD` in the allowed set, `SECRET_KEY` non-empty outside development, the four scoring weights summing to 1.0, and `LLM_PROVIDER` being `openai` or `anthropic` with `LLM_MODEL` set whenever `LLM_PROVIDER=openai` (there is no safe built-in default model id, since one endpoint's valid ids don't carry over to another). Startup fails loudly rather than running misconfigured. `SEMANTIC_SKILL_MATCHING=true` is checked too, but only logs a startup warning — the feature it gates stays inert regardless until Phase 13 validates a real threshold (Phases.md), so there is nothing for it to fail on.

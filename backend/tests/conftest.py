@@ -6,9 +6,26 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.enums import UserRole
 from app.database import Base, get_db
+from app.dependencies import interview_question_rate_limiter
 from app.main import app
 from app.models.user import User
 from app.utils import files as files_module
+
+
+@pytest.fixture(autouse=True)
+def _reset_interview_rate_limiter():
+    """The rate limiter (app/core/rate_limit.py) is a module-level
+    singleton shared by the whole test process, unlike the database or
+    upload_dir fixtures above, which are freshly isolated per test. Most
+    tests register their own first user in a fresh in-memory DB, so that
+    user consistently gets id 1 — meaning, without this reset, unrelated
+    tests hitting POST /candidates/{id}/interview-questions would
+    silently share one running count and could start failing with a
+    spurious 429 depending on run order alone.
+    """
+    interview_question_rate_limiter.reset()
+    yield
+    interview_question_rate_limiter.reset()
 
 
 @pytest.fixture

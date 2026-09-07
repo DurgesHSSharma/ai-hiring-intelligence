@@ -17,6 +17,14 @@ dnspython==2.8.0
 pandas==2.2.3
 numpy==1.26.4
 scikit-learn==1.5.2
+# The served attrition artifact (ml/attrition/artifacts/calibrated_model.joblib)
+# is a CalibratedClassifierCV wrapping a pipeline that embeds an imblearn
+# SMOTE step (Architecture.md 7.4) — joblib.load needs this importable to
+# unpickle it, even though SMOTE itself never runs at inference time. Pinned
+# identically to ml/requirements.txt's training-time pin (Phase 15 finding:
+# this was missing here, masked for months by the shared dev .venv already
+# having it installed directly — see Memory.md).
+imbalanced-learn==0.12.4
 spacy==3.8.3
 # Not on PyPI's normal index — spaCy's language models are published as
 # direct-download wheels. pip installs a URL requirement line like any

@@ -87,3 +87,9 @@ class LLMError(AppError):
     code = "LLM_ERROR"
     http_status = 503
     message = "The language model provider failed."
+
+
+class RateLimitError(AppError):
+    code = "RATE_LIMIT_EXCEEDED"
+    http_status = 429
+    message = "Too many requests. Please try again later."

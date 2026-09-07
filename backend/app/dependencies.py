@@ -13,7 +13,8 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.enums import UserRole
-from app.core.exceptions import AuthenticationError, AuthorizationError, ValidationError
+from app.core.exceptions import AuthenticationError, AuthorizationError, RateLimitError, ValidationError
+from app.core.rate_limit import FixedWindowRateLimiter
 from app.core.security import decode_access_token
 from app.database import get_db
 from app.models.user import User
@@ -80,6 +81,31 @@ def require_admin(current_user: CurrentUser) -> User:
 
 
 AdminUser = Annotated[User, Depends(require_admin)]
+
+# Module-level singleton, the same precedent as oauth2_scheme above: one
+# counter set shared by every request this process handles, for the life
+# of the process. WINDOW_SECONDS is fixed at one hour to match the
+# setting's name; only the request count is configurable.
+INTERVIEW_RATE_LIMIT_WINDOW_SECONDS = 3600
+interview_question_rate_limiter = FixedWindowRateLimiter(
+    max_requests=settings.INTERVIEW_RATE_LIMIT_PER_HOUR,
+    window_seconds=INTERVIEW_RATE_LIMIT_WINDOW_SECONDS,
+)
+
+
+def enforce_interview_generation_rate_limit(current_user: CurrentUser) -> None:
+    """Depends on CurrentUser, not a bare token, so an unauthenticated
+    caller is rejected by get_current_user (401 TOKEN_MISSING/etc.)
+    before this ever runs — the rate limit only ever gates an
+    already-authenticated user, keyed by their id so one user's usage
+    never affects another's (PRD/Phases.md Phase 15).
+    """
+    allowed, retry_after_seconds = interview_question_rate_limiter.check(str(current_user.id))
+    if not allowed:
+        raise RateLimitError(
+            "Too many interview-question generation requests. Please try again later.",
+            details={"retry_after_seconds": retry_after_seconds},
+        )
 
 
 def pagination_params(

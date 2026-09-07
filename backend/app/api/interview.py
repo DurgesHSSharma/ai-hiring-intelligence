@@ -2,14 +2,18 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.dependencies import CurrentUser
+from app.dependencies import CurrentUser, enforce_interview_generation_rate_limit
 from app.schemas.interview import GenerateQuestionsRequest, InterviewQuestionsResponse
 from app.services import interview_service
 
 router = APIRouter(tags=["interview"])
 
 
-@router.post("/candidates/{candidate_id}/interview-questions", response_model=InterviewQuestionsResponse)
+@router.post(
+    "/candidates/{candidate_id}/interview-questions",
+    response_model=InterviewQuestionsResponse,
+    dependencies=[Depends(enforce_interview_generation_rate_limit)],
+)
 def generate_interview_questions(
     candidate_id: int,
     payload: GenerateQuestionsRequest,

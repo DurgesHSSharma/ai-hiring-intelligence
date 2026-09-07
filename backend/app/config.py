@@ -78,9 +78,25 @@ class Settings(BaseSettings):
 
     ATTRITION_MODEL_PATH: str
 
+    # Phase 15: per-user cap on POST /candidates/{id}/interview-questions,
+    # the only endpoint that spends an LLM call. 20/hour is deliberately
+    # generous for ordinary recruiter use (a handful of candidates per
+    # session, each generated once or regenerated occasionally) while
+    # still bounding worst-case cost and upstream-provider load from a
+    # single account. See Memory.md for the reasoning at the time this
+    # was chosen.
+    INTERVIEW_RATE_LIMIT_PER_HOUR: int = 20
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+
+    @field_validator("INTERVIEW_RATE_LIMIT_PER_HOUR")
+    @classmethod
+    def interview_rate_limit_must_be_positive(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"INTERVIEW_RATE_LIMIT_PER_HOUR must be at least 1, got {v}.")
+        return v
 
     @field_validator("SCORING_METHOD")
     @classmethod

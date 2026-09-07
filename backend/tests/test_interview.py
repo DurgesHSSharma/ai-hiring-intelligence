@@ -674,6 +674,159 @@ def test_requires_auth(client, db_session):
     assert response.status_code == 401
 
 
+# --- Phase 15: per-user rate limit on generation ----------------------------
+#
+# The limiter (app/core/rate_limit.py) is a module-level singleton reset by
+# conftest.py's autouse _reset_interview_rate_limiter fixture before/after
+# every test, so these tests can freely monkeypatch its max_requests down to
+# a small number without waiting for a real clock hour or affecting any
+# other test in the suite.
+
+
+def test_rate_limit_allows_requests_within_configured_limit(
+    client, db_session, auth_headers, llm_ready, monkeypatch
+):
+    from app import dependencies
+
+    monkeypatch.setattr(dependencies.interview_question_rate_limiter, "max_requests", 3)
+    job = _make_job(db_session)
+    candidate = _make_candidate(db_session)
+    _add_skills(db_session, candidate, ["Python", "FastAPI"])
+    _mock_generate(monkeypatch, _questions_json(_grounded_pairs(10)))
+
+    # First call generates; the next two are cache hits (regenerate not
+    # set) — all three still count against the limit, since it gates the
+    # endpoint itself, not just the LLM call inside it.
+    for _ in range(3):
+        response = client.post(
+            f"/api/v1/candidates/{candidate.id}/interview-questions",
+            headers=auth_headers,
+            json={"job_id": job.id},
+        )
+        assert response.status_code == 200, response.text
+
+
+def test_rate_limit_rejects_request_exceeding_limit_with_clean_envelope(
+    client, db_session, auth_headers, llm_ready, monkeypatch
+):
+    from app import dependencies
+
+    monkeypatch.setattr(dependencies.interview_question_rate_limiter, "max_requests", 2)
+    job = _make_job(db_session)
+    candidate = _make_candidate(db_session)
+    _add_skills(db_session, candidate, ["Python", "FastAPI"])
+    _mock_generate(monkeypatch, _questions_json(_grounded_pairs(10)))
+
+    for _ in range(2):
+        response = client.post(
+            f"/api/v1/candidates/{candidate.id}/interview-questions",
+            headers=auth_headers,
+            json={"job_id": job.id},
+        )
+        assert response.status_code == 200
+
+    third = client.post(
+        f"/api/v1/candidates/{candidate.id}/interview-questions",
+        headers=auth_headers,
+        json={"job_id": job.id},
+    )
+    assert third.status_code == 429
+    body = third.json()
+    assert body["error"]["code"] == "RATE_LIMIT_EXCEEDED"
+    assert "retry_after_seconds" in body["error"]["details"]
+    assert body["error"]["details"]["retry_after_seconds"] > 0
+    # Same envelope shape as every other error (Architecture.md 6.1) —
+    # no internals, no stack trace, nothing beyond code/message/details.
+    assert set(body["error"].keys()) == {"code", "message", "details"}
+
+
+def test_rate_limit_is_isolated_per_user_and_does_not_block_a_different_user(
+    client, db_session, auth_headers, llm_ready, monkeypatch
+):
+    from app import dependencies
+
+    monkeypatch.setattr(dependencies.interview_question_rate_limiter, "max_requests", 1)
+    job = _make_job(db_session)
+    candidate = _make_candidate(db_session)
+    _add_skills(db_session, candidate, ["Python", "FastAPI"])
+    _mock_generate(monkeypatch, _questions_json(_grounded_pairs(10)))
+
+    first_user_first_call = client.post(
+        f"/api/v1/candidates/{candidate.id}/interview-questions",
+        headers=auth_headers,
+        json={"job_id": job.id},
+    )
+    assert first_user_first_call.status_code == 200
+
+    first_user_second_call = client.post(
+        f"/api/v1/candidates/{candidate.id}/interview-questions",
+        headers=auth_headers,
+        json={"job_id": job.id},
+    )
+    assert first_user_second_call.status_code == 429
+
+    client.post(
+        "/api/v1/auth/register",
+        json={"name": "Second Recruiter", "email": "second@example.com", "password": "correct-horse-battery"},
+    )
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "second@example.com", "password": "correct-horse-battery"}
+    )
+    second_user_headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    call_from_different_user = client.post(
+        f"/api/v1/candidates/{candidate.id}/interview-questions",
+        headers=second_user_headers,
+        json={"job_id": job.id},
+    )
+    # This candidate/job already has a stored set (from the first user's
+    # call above) and regenerate isn't set, so this is a cache hit — the
+    # point being proven is that a different user id is a fresh limiter
+    # key, not blocked by the first user's exhausted quota.
+    assert call_from_different_user.status_code == 200
+
+
+def test_rate_limit_does_not_apply_to_get(client, db_session, auth_headers, llm_ready, monkeypatch):
+    """GET never calls the LLM (Architecture.md 7.3) and isn't
+    'generation' — only the POST route carries the rate-limit dependency.
+    """
+    from app import dependencies
+
+    monkeypatch.setattr(dependencies.interview_question_rate_limiter, "max_requests", 1)
+    job = _make_job(db_session)
+    candidate = _make_candidate(db_session)
+    _add_skills(db_session, candidate, ["Python", "FastAPI"])
+    _mock_generate(monkeypatch, _questions_json(_grounded_pairs(10)))
+
+    client.post(
+        f"/api/v1/candidates/{candidate.id}/interview-questions",
+        headers=auth_headers,
+        json={"job_id": job.id},
+    )
+
+    for _ in range(5):
+        response = client.get(
+            f"/api/v1/candidates/{candidate.id}/interview-questions",
+            headers=auth_headers,
+            params={"job_id": job.id},
+        )
+        assert response.status_code == 200
+
+
+def test_rate_limit_requires_auth_before_counting(client, db_session):
+    """An unauthenticated request must fail at the auth dependency
+    (401 TOKEN_MISSING), not be counted against — or rejected by — the
+    rate limiter, which only ever runs for an already-authenticated user.
+    """
+    job = _make_job(db_session)
+    candidate = _make_candidate(db_session)
+    response = client.post(
+        f"/api/v1/candidates/{candidate.id}/interview-questions", json={"job_id": job.id}
+    )
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "TOKEN_MISSING"
+
+
 # --- client.py: retry and error classification, real SDK exceptions --------
 
 
@@ -784,3 +937,149 @@ def test_client_no_api_key_fails_immediately_no_call(monkeypatch):
         llm_client.generate("p", system="s")
     assert exc_info.value.code == "LLM_UNAVAILABLE"
     assert calls["n"] == 0
+
+
+# --- client.py: the openai provider path (Phase 15) -------------------------
+#
+# LLM_PROVIDER=openai is the shipped default (.env.example, targeting Groq
+# via OPENAI_BASE_URL) — every test above forces the anthropic path via
+# llm_ready for determinism, which left generate()'s provider-selection
+# branch (client.py: "if settings.LLM_PROVIDER == 'openai': ... call =
+# _call_openai") and its retry/classification loop completely unexercised
+# against the actual default. That logic is provider-generic (same
+# sdk.APITimeoutError/RateLimitError/APIConnectionError/APIStatusError
+# pattern, aliased per provider), so these mirror the anthropic tests above
+# exactly, with real openai SDK exception types and a monkeypatched network
+# call — no real request ever leaves the process, same as every other LLM
+# test in this file (Rules.md 6).
+
+
+@pytest.fixture
+def openai_ready(monkeypatch):
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openai")
+    monkeypatch.setattr(settings, "LLM_MODEL", "gpt-4o-mini")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "sk-test-fake")
+
+
+def _openai_timeout():
+    import httpx
+    import openai
+
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    return openai.APITimeoutError(request=request)
+
+
+def _openai_status(status_code: int):
+    import httpx
+    import openai
+
+    request = httpx.Request("POST", "https://api.openai.com/v1/chat/completions")
+    response = httpx.Response(status_code, request=request, json={"error": {"message": "boom"}})
+    if status_code == 429:
+        return openai.RateLimitError("rate limited", response=response, body={})
+    return openai.APIStatusError("boom", response=response, body={})
+
+
+def test_client_openai_path_selected_and_retries_once_on_timeout_then_succeeds(
+    openai_ready, monkeypatch
+):
+    success = LLMResult(text="ok", model="gpt-4o-mini", input_tokens=1, output_tokens=1)
+    calls = {"n": 0}
+
+    def fake_call(prompt, system):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise _openai_timeout()
+        return success
+
+    monkeypatch.setattr(llm_client, "_call_openai", fake_call)
+    result = llm_client.generate("p", system="s")
+    assert result is success
+    assert calls["n"] == 2
+
+
+def test_client_openai_rate_limit_twice_raises_llm_unavailable(openai_ready, monkeypatch):
+    calls = {"n": 0}
+
+    def fake_call(prompt, system):
+        calls["n"] += 1
+        raise _openai_status(429)
+
+    monkeypatch.setattr(llm_client, "_call_openai", fake_call)
+    with pytest.raises(LLMError) as exc_info:
+        llm_client.generate("p", system="s")
+    assert exc_info.value.code == "LLM_UNAVAILABLE"
+    assert calls["n"] == 2
+
+
+def test_client_openai_bad_request_fails_immediately_no_retry(openai_ready, monkeypatch):
+    calls = {"n": 0}
+
+    def fake_call(prompt, system):
+        calls["n"] += 1
+        raise _openai_status(400)
+
+    monkeypatch.setattr(llm_client, "_call_openai", fake_call)
+    with pytest.raises(LLMError) as exc_info:
+        llm_client.generate("p", system="s")
+    assert exc_info.value.code == "LLM_UNAVAILABLE"
+    assert calls["n"] == 1  # non-retryable: no second attempt
+
+
+def test_client_openai_no_api_key_fails_immediately_no_call(monkeypatch):
+    monkeypatch.setattr(settings, "LLM_PROVIDER", "openai")
+    monkeypatch.setattr(settings, "OPENAI_API_KEY", "")
+    calls = {"n": 0}
+
+    def fake_call(prompt, system):
+        calls["n"] += 1
+        raise AssertionError("should never be called with no API key")
+
+    monkeypatch.setattr(llm_client, "_call_openai", fake_call)
+    with pytest.raises(LLMError) as exc_info:
+        llm_client.generate("p", system="s")
+    assert exc_info.value.code == "LLM_UNAVAILABLE"
+    assert calls["n"] == 0
+
+
+def test_call_openai_builds_llmresult_from_response(openai_ready, monkeypatch):
+    """_call_openai itself (client.py:96-111) — the actual response-to-
+    LLMResult mapping — has never run under any test, since every test
+    above stubs it out entirely. Substituting _get_openai_client (rather
+    than calling through its @lru_cache) with a plain fake client keeps
+    this deterministic and avoids cross-test cache pollution from the
+    real cached singleton.
+    """
+
+    class _FakeMessage:
+        content = "hello from openai"
+
+    class _FakeChoice:
+        message = _FakeMessage()
+
+    class _FakeUsage:
+        prompt_tokens = 42
+        completion_tokens = 17
+
+    class _FakeResponse:
+        choices = [_FakeChoice()]
+        model = "gpt-4o-mini"
+        usage = _FakeUsage()
+
+    class _FakeCompletions:
+        def create(self, **kwargs):
+            return _FakeResponse()
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    class _FakeClient:
+        chat = _FakeChat()
+
+    monkeypatch.setattr(llm_client, "_get_openai_client", lambda: _FakeClient())
+
+    result = llm_client._call_openai("prompt text", "system text")
+    assert result.text == "hello from openai"
+    assert result.model == "gpt-4o-mini"
+    assert result.input_tokens == 42
+    assert result.output_tokens == 17

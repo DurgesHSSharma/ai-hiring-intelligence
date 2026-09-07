@@ -582,6 +582,8 @@ Response is a per-metric matrix, not a per-candidate list, so `best_candidate_id
 
 Body: `{ "job_id": int, "count"?: int (5-8, default 8), "regenerate"?: bool (default false) }`.
 
+Rate limited per authenticated user (Phase 15): at most `INTERVIEW_RATE_LIMIT_PER_HOUR` (default 20) calls to this endpoint per user per rolling clock hour, counted regardless of whether the call actually reaches the LLM (a cached, non-regenerating response still counts). Exceeding it returns `429 RATE_LIMIT_EXCEEDED` with `details.retry_after_seconds`. Each user's count is independent — one user's usage never affects another's. `GET` is unaffected; it never calls the LLM.
+
 If questions already exist for this candidate/job pair and `regenerate` is not `true`, the stored set is returned directly — no LLM call is made. Otherwise the configured LLM provider is called to generate `count + 2` questions (a buffer against the grounding filter below), of which up to `count` grounded ones are kept and persisted under one `generation_batch` UUID. `regenerate: true` deletes the previously stored set for this pair before generating — it replaces, never appends.
 
 Every kept question is checked against a grounding filter (F8.4): it must contain at least one concrete detail drawn from the candidate's own extracted skills, projects, certifications, or Experience-section resume text (never from the job posting). This is word-boundary-safe substring matching against a candidate-specific allowlist, not semantic understanding — see `docs/EVALUATION.md`'s Phase 8 section for exactly what it does and does not catch.

@@ -125,3 +125,22 @@ def test_openai_base_url_set_is_preserved_verbatim(monkeypatch):
     _set_env(monkeypatch, {"OPENAI_BASE_URL": "https://api.groq.com/openai/v1"})
     settings = Settings(_env_file=None)
     assert settings.OPENAI_BASE_URL == "https://api.groq.com/openai/v1"
+
+
+def test_interview_rate_limit_defaults_to_20_when_unset(monkeypatch):
+    _set_env(monkeypatch)
+    monkeypatch.delenv("INTERVIEW_RATE_LIMIT_PER_HOUR", raising=False)
+    settings = Settings(_env_file=None)
+    assert settings.INTERVIEW_RATE_LIMIT_PER_HOUR == 20
+
+
+def test_interview_rate_limit_is_configurable(monkeypatch):
+    _set_env(monkeypatch, {"INTERVIEW_RATE_LIMIT_PER_HOUR": "5"})
+    settings = Settings(_env_file=None)
+    assert settings.INTERVIEW_RATE_LIMIT_PER_HOUR == 5
+
+
+def test_interview_rate_limit_rejects_non_positive_value(monkeypatch):
+    _set_env(monkeypatch, {"INTERVIEW_RATE_LIMIT_PER_HOUR": "0"})
+    with pytest.raises(Exception, match="INTERVIEW_RATE_LIMIT_PER_HOUR must be at least 1"):
+        Settings(_env_file=None)
