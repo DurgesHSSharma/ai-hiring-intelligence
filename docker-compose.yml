@@ -1,0 +1,145 @@
+# Local parity stack (Architecture.md 10): backend + postgres:16. No
+# frontend service yet — Phase 16 Stage 1 scope is backend/Postgres only.
+#
+# Configuration is entirely environment-variable driven (Architecture.md 8).
+# Every value below has a working development default via ${VAR:-default}
+# substitution, so `docker compose up` runs with no .env file at all. To
+# override anything (a real LLM key, a non-default Postgres password), put
+# it in a `.env` file next to this one — Compose loads it automatically for
+# variable substitution — or export it in the shell before running.
+#
+# The attrition model strategy is Option B (see backend/Dockerfile and
+# Memory.md): the backend image never bakes in or trains the attrition
+# model. ml/attrition/artifacts is optionally mounted read-only below so a
+# model already trained on the host (ml/attrition/03_train.py through
+# 12_finalize_risk_tier.py — see docs/SETUP.md) becomes available inside
+# the container at the exact relative path ATTRITION_MODEL_PATH already
+# expects. Without that directory populated, the attrition endpoints
+# correctly return 503 ATTRITION_MODEL_MISSING (app/ml/attrition/predictor.py)
+# — every other endpoint is unaffected, by existing design.
+#
+# Startup order is Postgres healthy -> migrations applied -> backend ready:
+# `migrate` is a one-shot service (alembic upgrade head, then exits) that
+# `backend` waits on via `condition: service_completed_successfully`. If
+# migrations fail, `migrate` exits non-zero, Compose never starts `backend`
+# at all, and `docker compose up --wait` fails loudly instead of leaving a
+# backend running against an empty schema. This is the same
+# `alembic upgrade head` command docs/SETUP.md already documents running by
+# hand — no new migration mechanism.
+#
+# `migrate` and `backend` share one image build (same context, same
+# Dockerfile, same `image:` tag) with only the container `command` differing
+# — no separate entrypoint script needed, since the Dockerfile has no
+# ENTRYPOINT and Compose's `command:` fully replaces its CMD.
+
+x-backend-env: &backend-env
+  APP_ENV: ${APP_ENV:-development}
+  API_V1_PREFIX: /api/v1
+  SECRET_KEY: ${SECRET_KEY:-}
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+
+  # postgresql+psycopg2: the approved, correct driver — verified, not
+  # assumed (Memory.md): the app uses synchronous SQLAlchemy exclusively
+  # (no AsyncSession/asyncpg anywhere), and psycopg2-binary ships a
+  # prebuilt manylinux cp311 x86_64 wheel, so no compiler toolchain is
+  # needed on python:3.11-slim. "db" is this service's name, resolved via
+  # Docker's internal DNS — never localhost from inside the container.
+  DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-hireintel}:${POSTGRES_PASSWORD:-hireintel_dev_only}@db:5432/${POSTGRES_DB:-hireintel}
+
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+
+  UPLOAD_DIR: ./storage
+  MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-5}
+  MAX_FILES_PER_BATCH: ${MAX_FILES_PER_BATCH:-50}
+
+  SCORING_METHOD: ${SCORING_METHOD:-tfidf}
+  EMBEDDING_MODEL: ${EMBEDDING_MODEL:-all-MiniLM-L6-v2}
+  SEMANTIC_SKILL_MATCHING: ${SEMANTIC_SKILL_MATCHING:-false}
+  WEIGHT_RESUME: ${WEIGHT_RESUME:-0.40}
+  WEIGHT_SKILL: ${WEIGHT_SKILL:-0.35}
+  WEIGHT_EXPERIENCE: ${WEIGHT_EXPERIENCE:-0.15}
+  WEIGHT_EDUCATION: ${WEIGHT_EDUCATION:-0.10}
+
+  LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+  LLM_MODEL: ${LLM_MODEL:-openai/gpt-oss-120b}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.groq.com/openai/v1}
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+  LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-30}
+
+  # Left as the same relative path backend/.env.example already uses —
+  # resolves to /ml/attrition/artifacts/... from WORKDIR /app, matching
+  # the volume mount below one-for-one, no code change required.
+  ATTRITION_MODEL_PATH: ../ml/attrition/artifacts/calibrated_model.joblib
+
+  INTERVIEW_RATE_LIMIT_PER_HOUR: ${INTERVIEW_RATE_LIMIT_PER_HOUR:-20}
+
+services:
+  # One-shot: applies migrations, then exits. Deliberately not restarted
+  # (restart: "no", Compose's own default, stated explicitly here) — a
+  # migration container is meant to run once per startup, not loop.
+  # `app.config`'s Settings() is instantiated at import time by
+  # alembic/env.py too, so this needs the full environment set below, not
+  # just DATABASE_URL.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: hireintel-backend:local
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: hireintel-backend:local
+    ports:
+      - "8000:8000"
+    environment: *backend-env
+    volumes:
+      # Optional: present only if the host has already run the training
+      # pipeline (docs/SETUP.md). Read-only — the container never writes
+      # artifacts. Absent directory/files -> 503 ATTRITION_MODEL_MISSING,
+      # the documented contract, not a startup failure.
+      - ./ml/attrition/artifacts:/ml/attrition/artifacts:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      # Hits the real /health endpoint (app/api/health.py), which itself
+      # runs SELECT 1 against Postgres — a 503 (DB unreachable) makes
+      # urlopen raise, so this can't report healthy while degraded. Only
+      # reachable after `migrate` has already exited 0, since Compose
+      # won't start this container otherwise.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hireintel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hireintel_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-hireintel}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hireintel} -d ${POSTGRES_DB:-hireintel}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

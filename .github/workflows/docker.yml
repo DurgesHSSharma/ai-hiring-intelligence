@@ -1,0 +1,108 @@
+name: Docker
+
+# Phase 16 Stage 1: proves the backend image builds, migrates a real
+# PostgreSQL database, and serves requests on a clean Linux checkout — the
+# one thing local verification cannot currently do (Docker Desktop is
+# unavailable in this project's dev environment; see Memory.md). Scoped to
+# the files this workflow actually depends on so unrelated changes
+# elsewhere don't trigger a Docker build.
+on:
+  push:
+    branches: [master]
+    paths:
+      - "backend/**"
+      - "docker-compose.yml"
+      - ".github/workflows/docker.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - "docker-compose.yml"
+      - ".github/workflows/docker.yml"
+
+jobs:
+  docker-build-and-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t hireintel-backend:ci ./backend
+
+      - name: Validate docker-compose.yml
+        run: docker compose config
+
+      # No .env, no secrets — every value docker-compose.yml needs has a
+      # working development default (Rules.md 1.4: no fake secrets just to
+      # make CI pass). ml/attrition/artifacts is not present on this
+      # checkout (gitignored, Phases.md Phase 0), so this run exercises the
+      # exact fresh-clone path a real user hits. `--wait` blocks until every
+      # service with a healthcheck is healthy AND every one-shot dependency
+      # (migrate) has exited 0 — if migrations fail, `migrate` exits
+      # non-zero, `backend` never starts (service_completed_successfully),
+      # and this step fails loudly instead of the workflow silently
+      # continuing against an unmigrated database.
+      - name: Start Postgres, run migrations, start backend
+        run: docker compose up -d --wait --wait-timeout 180
+
+      - name: Migration actually ran — real tables exist in Postgres
+        run: |
+          docker compose exec -T db psql -U hireintel -d hireintel -c '\dt' | tee tables.txt
+          grep -q "users" tables.txt
+          grep -q "jobs" tables.txt
+          grep -q "attrition_predictions" tables.txt
+
+      - name: Backend reports healthy and connected to the migrated Postgres
+        run: |
+          curl -sf http://localhost:8000/api/v1/health | tee health.json
+          grep -q '"status":"healthy"' health.json
+          grep -q '"database":"connected"' health.json
+
+      - name: imbalanced-learn is importable inside the running container
+        run: docker compose exec -T backend python -c "import imblearn; print(imblearn.__version__)"
+
+      # Real HTTP round-trip, now that migrations have run: register a
+      # user, log in, and call an attrition endpoint with a real bearer
+      # token. Option B (Memory.md, docker-compose.yml) means this
+      # checkout has no model artifact and none is mounted, so the only
+      # honest outcome is the documented 503 ATTRITION_MODEL_MISSING
+      # contract (app/ml/attrition/predictor.py) — a real prediction is
+      # never claimed here, because no trained artifact is present.
+      - name: Register and log in a real user
+        run: |
+          curl -sf -X POST http://localhost:8000/api/v1/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"name":"CI Runner","email":"ci-runner@example.com","password":"ci-only-password-1"}' \
+            > register.json
+          curl -sf -X POST http://localhost:8000/api/v1/auth/login \
+            -H "Content-Type: application/json" \
+            -d '{"email":"ci-runner@example.com","password":"ci-only-password-1"}' \
+            > login.json
+          python -c "
+          import json
+          token = json.load(open('login.json'))['access_token']
+          assert token
+          open('token.txt', 'w').write(token)
+          "
+
+      - name: Attrition endpoint correctly reports the model missing on a fresh clone
+        run: |
+          TOKEN=$(cat token.txt)
+          STATUS=$(curl -s -o predict.json -w "%{http_code}" -X POST http://localhost:8000/api/v1/attrition/predict \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $TOKEN" \
+            -d '{"age":35,"distance_from_home":5,"monthly_income":5000,"percent_salary_hike":15,"total_working_years":10,"years_at_company":5,"years_since_last_promotion":1,"years_with_curr_manager":3,"job_level":2,"job_satisfaction":3,"environment_satisfaction":3,"relationship_satisfaction":3,"performance_rating":3,"stock_option_level":1,"department":"Sales","business_travel":"Travel_Rarely","overtime":true}')
+          cat predict.json
+          test "$STATUS" = "503"
+          grep -q '"code":"ATTRITION_MODEL_MISSING"' predict.json
+
+      - name: Migration container logs
+        if: always()
+        run: docker compose logs migrate
+
+      - name: Show service logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v

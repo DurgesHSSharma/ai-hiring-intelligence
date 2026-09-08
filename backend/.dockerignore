@@ -1,0 +1,34 @@
+# Secrets and local config
+.env
+.env.*
+!.env.example
+
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Test / coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local runtime state — never belongs in an image
+storage/
+*.db
+
+# Editor / OS cruft
+.vscode/
+.idea/
+.DS_Store
+
+# Docker files themselves don't need to be in the image
+Dockerfile
+.dockerignore
+docker-compose.yml

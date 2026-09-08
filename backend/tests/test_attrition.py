@@ -13,6 +13,7 @@ mechanism directly for the same reason, plus a real on-disk file move for
 the manual-verification half of Phases.md's acceptance criterion.
 """
 import time
+import warnings
 from datetime import datetime, timezone
 
 import pandas as pd
@@ -395,6 +396,50 @@ def test_load_artifacts_raises_when_file_missing(tmp_path):
     with pytest.raises(ModelUnavailableError) as exc_info:
         attrition_predictor.load_artifacts(tmp_path / "does_not_exist.joblib")
     assert exc_info.value.code == "ATTRITION_MODEL_MISSING"
+
+
+def test_load_artifacts_does_not_warn_when_sklearn_versions_match(caplog):
+    """The real shipped artifacts, loaded under the sklearn version actually
+    pinned in backend/requirements.txt (Phase 16 Stage 1 review) - proves
+    the two stay compatible via a real load, not just matching version
+    pins read off two requirements files.
+    """
+    with caplog.at_level("WARNING"):
+        attrition_predictor.load_artifacts(settings.ATTRITION_MODEL_PATH)
+    assert not any("scikit-learn" in record.message for record in caplog.records)
+
+
+def test_load_artifacts_warns_on_sklearn_version_mismatch(monkeypatch, caplog):
+    """Phase 16 Stage 1 review: a lightweight compatibility check so future
+    drift between ml/requirements.txt (training) and backend/requirements.txt
+    (serving) can't silently go unnoticed. Reuses sklearn's own
+    InconsistentVersionWarning rather than tracking a version string by
+    hand - simulated here (real artifacts never trigger it, per the test
+    above) by wrapping the real joblib.load with one extra synthetic
+    warning, so the rest of load_artifacts still runs against genuinely
+    valid artifacts.
+    """
+    from sklearn.exceptions import InconsistentVersionWarning
+
+    real_load = attrition_predictor.joblib.load
+
+    def warning_load(path, *args, **kwargs):
+        result = real_load(path, *args, **kwargs)
+        warnings.warn(
+            InconsistentVersionWarning(
+                estimator_name="LogisticRegression",
+                current_sklearn_version="1.5.2",
+                original_sklearn_version="1.4.0",
+            )
+        )
+        return result
+
+    monkeypatch.setattr(attrition_predictor.joblib, "load", warning_load)
+
+    with caplog.at_level("WARNING"):
+        attrition_predictor.load_artifacts(settings.ATTRITION_MODEL_PATH)
+
+    assert any("scikit-learn" in record.message for record in caplog.records)
 
 
 # --- correctness / performance -----------------------------------------

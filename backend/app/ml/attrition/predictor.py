@@ -24,12 +24,15 @@ from __future__ import annotations
 
 import json
 import logging
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
 import joblib
 import numpy as np
 import pandas as pd
+import sklearn
+from sklearn.exceptions import InconsistentVersionWarning
 
 from app.core.exceptions import ModelUnavailableError
 
@@ -108,9 +111,28 @@ def load_artifacts(calibrated_model_path: str | Path) -> AttritionArtifacts:
     metrics_path = _require_file(artifact_dir / "metrics.json")
 
     try:
-        calibrated_model = joblib.load(calibrated_path)
-        explain_model = joblib.load(model_path)
-        preprocessor = joblib.load(preprocessor_path)
+        # scikit-learn warns (InconsistentVersionWarning) when unpickling an
+        # estimator fitted under a different sklearn version than is
+        # currently installed - the one place dependency drift between
+        # training (ml/requirements.txt) and serving (backend/requirements.txt)
+        # would otherwise go unnoticed, since a mismatched pickle can still
+        # load and predict, just not necessarily correctly. Reuses sklearn's
+        # own mechanism rather than tracking a version string by hand.
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.filterwarnings("always", category=InconsistentVersionWarning)
+            calibrated_model = joblib.load(calibrated_path)
+            explain_model = joblib.load(model_path)
+            preprocessor = joblib.load(preprocessor_path)
+        version_warnings = [w for w in caught if issubclass(w.category, InconsistentVersionWarning)]
+        if version_warnings:
+            logger.warning(
+                "Attrition model artifacts were pickled under a different "
+                "scikit-learn version than the one currently installed "
+                "(%s). Predictions may not exactly match training-time "
+                "behavior. Details: %s",
+                sklearn.__version__,
+                "; ".join(str(w.message) for w in version_warnings),
+            )
         with open(feature_names_path, encoding="utf-8") as f:
             feature_names = list(json.load(f))
         with open(threshold_path, encoding="utf-8") as f:
