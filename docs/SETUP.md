@@ -200,3 +200,28 @@ project's own dev machine is closed as WON'T FIX and what that CI run
 actually checked (image build, Postgres health, the real migration,
 backend health, `imblearn` importability, and the documented
 model-missing path over real HTTP).
+
+## Deploying this image on a platform (Render or similar)
+
+`backend/Dockerfile`'s own `CMD` already runs `alembic upgrade head`, then
+starts `uvicorn` bound to `$PORT` (falling back to `8000` if `$PORT` isn't
+set — the local-development case above). **Leave the platform's own
+"Docker Command" / "Start Command" override field empty** and let this
+image's default `CMD` run. Only set `DATABASE_URL`, `SECRET_KEY`,
+`CORS_ORIGINS`, and the other variables from `.env.example` as the
+platform's environment variables — `PORT` itself is normally injected by
+the platform, not something you set.
+
+**Do not type a command like `alembic upgrade head && uvicorn ...` directly
+into a platform's command-override field**, even though that looks like
+the right thing to run. Some platforms apply that field's contents to the
+container without a shell — the same way `docker run <image> <args...>`
+does — which means `&&` is never interpreted as a command separator; the
+entire string after `alembic` is instead passed to `alembic` itself as
+literal, unrecognized arguments (`alembic: error: unrecognized arguments:
+&& uvicorn app.main:app ...`). This project hit exactly that failure
+before this Dockerfile ran migrations internally. If a platform genuinely
+requires a command override, it must explicitly invoke a shell — e.g.
+`sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"`
+— but leaving the field empty is simpler and is what this image is built
+for.

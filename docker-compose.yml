@@ -94,6 +94,15 @@ services:
     restart: "no"
 
   backend:
+    # The image's own CMD (backend/Dockerfile) now also runs
+    # `alembic upgrade head` before uvicorn starts, for platforms (Render
+    # and similar) that run this image directly with no equivalent of the
+    # `migrate` one-shot service below. Here, that makes `migrate` belt-and-
+    # suspenders rather than strictly required — alembic upgrade head is
+    # idempotent, so running it twice in a row is harmless. `migrate` is
+    # kept as-is: it's still what gives this stack its stronger guarantee
+    # that `backend` never even starts if a migration fails, rather than
+    # racing a migration against uvicorn's own startup inside one container.
     build:
       context: ./backend
       dockerfile: Dockerfile

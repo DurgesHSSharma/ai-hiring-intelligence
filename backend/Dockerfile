@@ -37,4 +37,26 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Shell-form CMD, deliberately not the exec-form array this used to be —
+# exec-form ["cmd", "arg", ...] is passed straight to the kernel with no
+# shell involved, so it can neither interpret "&&" as a command separator
+# nor expand "${PORT:-8000}"; a platform-injected $PORT would be passed
+# through as the literal four characters "$PORT". Docker runs a bare-string
+# CMD as `/bin/sh -c "<this>"` automatically, which is what makes both work.
+# `exec` before uvicorn replaces that shell with the uvicorn process once
+# migrations succeed, so uvicorn becomes PID 1 and receives a platform's
+# SIGTERM directly for a clean shutdown, rather than an intermediate shell
+# swallowing it.
+#
+# This has no ENTRYPOINT, on purpose. Some platforms let you override a
+# container's start command from their own dashboard/config — if that
+# override is applied without a shell (i.e. split on whitespace and exec'd
+# directly, the way `docker run <image> <args...>` does), then typing
+# "alembic upgrade head && uvicorn ..." into that field reproduces exactly
+# the failure this fixes: "&&" and everything after it arrive as literal,
+# unrecognized arguments to `alembic` itself, because nothing ever
+# interpreted "&&" as a separator. The fix is to leave that platform's
+# command override unset so this image's own shell-form CMD runs — not to
+# hardcode `alembic` as the ENTRYPOINT and hope a platform appends the rest
+# correctly, which has the identical failure mode. See docs/SETUP.md.
+CMD alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
