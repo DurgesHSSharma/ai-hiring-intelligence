@@ -348,6 +348,8 @@ The second group are framework-level codes, not resource-specific ones: `REQUEST
 - The employee dataset excludes gender, marital status, and any other protected attribute from the model feature set. This exclusion is documented in code and in the README.
 - Resume text leaves the system only on an explicit question-generation request, and this is stated in the UI copy and the README.
 
+**Correction (2026-09-08):** The line above was aspirational, not accurate, until this date. Verified directly (`grep` across `frontend/src` for disclosure/privacy language): no such statement exists anywhere in the UI. `README.md`'s Privacy / PII disclosure section now states it explicitly, so the README half of the original bullet is true as of this correction. The UI half is not — adding this disclosure to the frontend remains outstanding. Do not assume it is already covered until it actually is.
+
 ---
 
 ## 8. Documentation duties
