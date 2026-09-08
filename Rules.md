@@ -350,6 +350,8 @@ The second group are framework-level codes, not resource-specific ones: `REQUEST
 
 **Correction (2026-09-08):** The line above was aspirational, not accurate, until this date. Verified directly (`grep` across `frontend/src` for disclosure/privacy language): no such statement exists anywhere in the UI. `README.md`'s Privacy / PII disclosure section now states it explicitly, so the README half of the original bullet is true as of this correction. The UI half is not — adding this disclosure to the frontend remains outstanding. Do not assume it is already covered until it actually is.
 
+**Update (2026-09-08, same day):** The UI half is now also done — kept as a separate, dated note rather than editing the Correction above, per this file's own convention of not erasing prior history. An inline privacy notice was added directly next to the interview-question generation action on both paths that trigger it: the Candidate Detail page's Interview Questions tab (`frontend/src/pages/CandidateDetailPage.tsx`) and the standalone Interview Questions page (`frontend/src/pages/InterviewQuestionsPage.tsx`) — verified to be the only two call sites of `interviewService.generate()` in the frontend. The notice is visible before generation is triggered, not gated behind it. Both the UI and the README halves of the original bullet are now true.
+
 ---
 
 ## 8. Documentation duties

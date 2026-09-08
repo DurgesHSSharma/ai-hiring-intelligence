@@ -11,7 +11,7 @@ import { jobService } from "@/services/jobService";
 import { scoringService } from "@/services/scoringService";
 import type { QuestionDifficulty } from "@/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Download, Mail, MapPin, Phone, RefreshCcw, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, Info, Mail, MapPin, Phone, RefreshCcw, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 
@@ -265,6 +265,16 @@ export default function CandidateDetailPage() {
             <p className="text-sm text-ink-300">Select a job above to generate interview questions.</p>
           ) : (
             <>
+              <div className="flex items-start gap-2 rounded-lg bg-info-bg px-3 py-2.5 text-sm text-info">
+                <Info size={16} className="mt-0.5 shrink-0" />
+                <p>
+                  <span className="font-semibold">Privacy notice:</span> AI interview-question generation sends
+                  this candidate's resume text to the configured LLM provider. Resume text may include personal
+                  information such as name, email, or phone number. This transfer occurs when you request
+                  AI-generated interview questions.
+                </p>
+              </div>
+
               <div className="flex justify-end">
                 <Button
                   variant={questionsQuery.data ? "outline" : "primary"}

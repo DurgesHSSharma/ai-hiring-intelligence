@@ -8,7 +8,7 @@ import { interviewService } from "@/services/interviewService";
 import { jobService } from "@/services/jobService";
 import type { InterviewQuestionsResponse, QuestionCategory, QuestionDifficulty } from "@/types";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 const DIFFICULTY_TONE: Record<QuestionDifficulty, "success" | "warning" | "danger"> = {
@@ -93,6 +93,16 @@ export default function InterviewQuestionsPage() {
               </option>
             ))}
           </Select>
+
+          <div className="flex items-start gap-2 rounded-lg bg-info-bg px-3 py-2.5 text-sm text-info">
+            <Info size={16} className="mt-0.5 shrink-0" />
+            <p>
+              <span className="font-semibold">Privacy notice:</span> AI interview-question generation sends the
+              candidate's resume text to the configured LLM provider. Resume text may include personal
+              information such as name, email, or phone number. This transfer occurs when you request
+              AI-generated interview questions.
+            </p>
+          </div>
 
           <Button
             disabled={!jobId || !candidateId}
